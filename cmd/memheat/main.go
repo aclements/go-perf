@@ -67,7 +67,7 @@ func main() {
 			}
 
 			extra := getMmapExtra(mmap)
-			if extra == nil {
+			if extra.linetab == nil {
 				break
 			}
 
@@ -342,7 +342,7 @@ func (m *mmapExtra) findIP(ip uint64) (fn string, line *dwarfx.LineEntry) {
 	return
 }
 
-func getMmapExtra(mmap *perfsession.Mmap) *mmapExtra {
+func getMmapExtra(mmap *perfsession.Mmap) (extra *mmapExtra) {
 	if mmap.Extra != nil {
 		return mmap.Extra.(*mmapExtra)
 	}
@@ -350,22 +350,28 @@ func getMmapExtra(mmap *perfsession.Mmap) *mmapExtra {
 	// Load ELF
 	elff, err := elf.Open(mmap.Filename)
 	if err != nil {
-		return nil
+		fmt.Fprintf(os.Stderr, "error loading ELF file %s: %s\n", mmap.Filename, err)
+		extra = &mmapExtra{}
+		mmap.Extra = extra
+		return
 	}
 	defer elff.Close()
 
 	// Load DWARF
 	dwarff, err := elff.DWARF()
 	if err != nil {
-		return nil
+		fmt.Fprintf(os.Stderr, "error loading DWARF from %s: %s\n", mmap.Filename, err)
+		extra = &mmapExtra{}
+		mmap.Extra = extra
+		return
 	}
 
-	extra := &mmapExtra{
+	extra = &mmapExtra{
 		dwarfFuncTable(dwarff),
 		dwarfLineTable(elff, dwarff),
 	}
 	mmap.Extra = extra
-	return extra
+	return
 }
 
 func limitFuncs(stats []*lineStat, limit int) []*lineStat {
