@@ -241,10 +241,12 @@ type Record interface {
 // Placeholder for unknown or unimplemented record types
 type RecordUnknown struct {
 	recordHeader
+
+	Data []byte
 }
 
 func (r *RecordUnknown) Type() RecordType {
-	return RecordType(0)
+	return RecordType(r.recordHeader.Type)
 }
 
 type RecordMmap struct {

@@ -84,7 +84,7 @@ func (r *Records) Next() bool {
 	default:
 		// As far as I can tell, RecordTypeRead can never
 		// appear in a perf.data file.
-		r.Record = &RecordUnknown{hdr}
+		r.Record = &RecordUnknown{hdr, bd.buf}
 
 	case RecordTypeMmap:
 		r.Record = r.parseMmap(bd, &hdr, false)
