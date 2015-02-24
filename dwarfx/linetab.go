@@ -57,16 +57,33 @@ func (dwarf64Format) addrsize() int {
 	return 8
 }
 
-func NewLineReader(line []byte, off dwarf.Offset) (*LineReader, error) {
+// NewLineReader returns a new reader for the line table of
+// compilation unit cu.
+//
+// Line tables are per-compilation unit.  cu must be an Entry with tag
+// TagCompileUnit.  line must be the contents of the .debug_line
+// section of the corresponding ELF file.
+//
+// If this compilation unit has no line table, this returns nil, nil.
+func NewLineReader(cu *dwarf.Entry, line []byte) (*LineReader, error) {
+	off, ok := cu.Val(dwarf.AttrStmtList).(int64)
+	if !ok {
+		// cu has no line table
+		return nil, nil
+	}
+	compDir, _ := cu.Val(dwarf.AttrCompDir).(string)
+
+	if off > int64(len(line)) {
+		off = int64(len(line))
+	}
+
 	// TODO: Use correct byte order and format.  The dwarf package
 	// hides this information and it's annoying to dig out
 	// ourselves.
-	if off > dwarf.Offset(len(line)) {
-		off = dwarf.Offset(len(line))
-	}
-	buf := makeBuf(nil, binary.LittleEndian, dwarf64Format{}, "line", off, line[off:])
+	buf := makeBuf(nil, binary.LittleEndian, dwarf64Format{}, "line", dwarf.Offset(off), line[off:])
 
-	lr := &LineReader{buf: buf}
+	// Compilation directory is implicitly directories[0]
+	lr := &LineReader{buf: buf, directories: []string{compDir}}
 	if err := lr.readPrologue(); err != nil {
 		return nil, err
 	}
@@ -105,8 +122,8 @@ func (r *LineReader) readPrologue() error {
 		}
 	}
 
-	// Include directories table
-	r.directories = make([]string, 0)
+	// Include directories table.  The caller already set
+	// directories[0] to the compilation directory.
 	for {
 		directory := buf.string()
 		if buf.err != nil {
@@ -115,9 +132,9 @@ func (r *LineReader) readPrologue() error {
 		if len(directory) == 0 {
 			break
 		}
-		if !path.IsAbs(directory) && len(r.directories) > 0 {
+		if !path.IsAbs(directory) {
 			// Relative paths are implicitly relative to
-			// the first directory in the list.
+			// the compilation directory.
 			directory = path.Join(r.directories[0], directory)
 		}
 		r.directories = append(r.directories, directory)
@@ -158,14 +175,10 @@ func (r *LineReader) readFileEntry() (bool, error) {
 	off := r.buf.off
 	dirIndex := int(r.buf.uint())
 	if !path.IsAbs(name) {
-		if dirIndex < len(r.directories) {
-			name = path.Join(r.directories[dirIndex], name)
-		} else if dirIndex != 0 {
-			// gc emits no directory table and sets every
-			// dirIndex to 0, but some paths are not
-			// absolute.  Roll with the punches.
+		if dirIndex >= len(r.directories) {
 			return false, DecodeError{"line", off, "directory index too large"}
 		}
+		name = path.Join(r.directories[dirIndex], name)
 	}
 	mtime := r.buf.uint()
 	length := int(r.buf.uint())

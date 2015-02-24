@@ -100,15 +100,12 @@ func dwarfLineTable(elff *elf.File, dwarff *dwarf.Data) []*dwarfx.LineEntry {
 			continue
 		}
 
-		loff, ok := ent.Val(dwarf.AttrStmtList).(int64)
-		if !ok {
-			continue
-		}
-
 		// Decode CU's line table
-		lr, err := dwarfx.NewLineReader(lineData, dwarf.Offset(loff))
+		lr, err := dwarfx.NewLineReader(ent, lineData)
 		if err != nil {
 			log.Fatal(err)
+		} else if lr == nil {
+			continue
 		}
 
 		for {
