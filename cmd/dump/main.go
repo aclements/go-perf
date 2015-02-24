@@ -5,14 +5,25 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/aclements/goperf/perffile"
 )
 
 func main() {
-	f, err := perffile.Open("perf.data")
+	var (
+		flagInput = flag.String("i", "perf.data", "input perf.data file")
+	)
+	flag.Parse()
+	if flag.NArg() > 0 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	f, err := perffile.Open(*flagInput)
 	if err != nil {
 		log.Fatal(err)
 	}
