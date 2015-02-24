@@ -144,7 +144,7 @@ func Open(name string) (*File, error) {
 	return ff, nil
 }
 
-// Clsoe closes the File.
+// Close closes the File.
 //
 // If the File was created using New directly instead of Open, Close
 // has no effect.
