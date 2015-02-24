@@ -174,7 +174,21 @@ func (r *Records) parseExit(bd *bufDecoder, hdr *recordHeader) Record {
 }
 
 func (r *Records) parseThrottle(bd *bufDecoder, hdr *recordHeader, enable bool) Record {
-	return &RecordThrottle{enable, bd.u64(), r.getAttr(attrID(bd.u64())), bd.u64()}
+	o := &RecordThrottle{Enable: enable}
+
+	o.Time = bd.u64()
+	// Throttle events always have an event attr ID, even if the
+	// IDs aren't recorded.  So if we see an unknown attr ID, just
+	// assume it's the default event.
+	id := attrID(bd.u64())
+	if r.f.idToAttr[id] == nil && r.f.idToAttr[0] != nil {
+		o.EventAttr = r.f.idToAttr[0]
+	} else {
+		o.EventAttr = r.getAttr(id)
+	}
+	o.StreamID = bd.u64()
+
+	return o
 }
 
 func (r *Records) parseFork(bd *bufDecoder, hdr *recordHeader) Record {
