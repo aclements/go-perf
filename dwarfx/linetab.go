@@ -14,8 +14,11 @@ import (
 type LineReader struct {
 	buf buf
 
+	// Prologue information
 	version              uint16
 	minInstructionLength int
+	maxOpsPerInstruction int
+	defaultIsStmt        bool
 	lineBase             int
 	lineRange            int
 	opcodeBase           int
@@ -33,13 +36,19 @@ type FileEntry struct {
 }
 
 type LineEntry struct {
-	Address     uint64 // program counter value
-	FileIndex   int    // index of file name in file table
-	FileEntry   *FileEntry
-	Line        int  // source line number, beginning at 1.  0 if unknown.
-	Column      int  // source column, beginning at 1.  0 if unknown.
-	IsStmt      bool // this instruction begins a statement
-	BasicBlock  bool // this instruction begins a basic block
+	Address       uint64 // program counter value
+	OpIndex       int    // index of this operation within a VLIW instruction, beginning at 0
+	FileIndex     int    // index of file name in file table
+	FileEntry     *FileEntry
+	Line          int  // source line number, beginning at 1.  0 if unknown.
+	Column        int  // source column, beginning at 1.  0 if unknown.
+	IsStmt        bool // this instruction begins a statement
+	BasicBlock    bool // this instruction begins a basic block
+	PrologueEnd   bool // execution should be suspended here for entry to this function
+	EpilogueBegin bool // execution should be suspended here for exit from this function
+	ISA           int  // instruction set architecture of the current instruction
+	Discriminator int  // the block on this source line to which the current instruction belongs
+
 	EndSequence bool // this is one past the last address in the table
 }
 
@@ -83,11 +92,31 @@ func NewLineReader(cu *dwarf.Entry, line []byte) (*LineReader, error) {
 	buf := makeBuf(nil, binary.LittleEndian, dwarf64Format{}, "line", dwarf.Offset(off), line[off:])
 
 	// Compilation directory is implicitly directories[0]
-	lr := &LineReader{buf: buf, directories: []string{compDir}}
-	if err := lr.readPrologue(); err != nil {
+	r := &LineReader{buf: buf, directories: []string{compDir}}
+
+	// Read the prologue/header and initialize the state machine
+	if err := r.readPrologue(); err != nil {
 		return nil, err
 	}
-	return lr, nil
+
+	// Initialize statement program state
+	r.state = LineEntry{
+		Address:       0,
+		OpIndex:       0,
+		FileIndex:     1,
+		FileEntry:     nil,
+		Line:          1,
+		Column:        0,
+		IsStmt:        r.defaultIsStmt,
+		BasicBlock:    false,
+		PrologueEnd:   false,
+		EpilogueBegin: false,
+		ISA:           0,
+		Discriminator: 0,
+	}
+	r.updateFileEntry()
+
+	return r, nil
 }
 
 // readPrologue reads the statement program prologue from r.buf.
@@ -95,30 +124,53 @@ func (r *LineReader) readPrologue() error {
 	buf := &r.buf
 
 	// [DWARF2 6.2.4]
+	hdrOffset := buf.off
 	totalLength := dwarf.Offset(buf.uint32())
 	if totalLength < dwarf.Offset(len(buf.data)) {
 		buf.data = buf.data[:totalLength]
 	}
 	r.version = buf.uint16()
+	if buf.err == nil && (r.version < 2 || r.version > 4) {
+		return DecodeError{"line", hdrOffset, fmt.Sprintf("unknown line table version %d", r.version)}
+	}
 	prologueLength := dwarf.Offset(buf.uint32())
 	programOffset := buf.off + prologueLength
 	r.minInstructionLength = int(buf.uint8())
-	defaultIsStmt := (buf.uint8() != 0)
+	if r.version >= 4 {
+		// [DWARF4 6.2.4]
+		r.maxOpsPerInstruction = int(buf.uint8())
+	} else {
+		r.maxOpsPerInstruction = 1
+	}
+	r.defaultIsStmt = (buf.uint8() != 0)
 	r.lineBase = int(int8(buf.uint8()))
 	r.lineRange = int(buf.uint8())
+
+	// Validate header
+	if buf.err != nil {
+		return buf.err
+	}
+	if r.maxOpsPerInstruction == 0 {
+		return DecodeError{"line", hdrOffset, "invalid maximum operations per instruction: 0"}
+	}
+	if r.lineRange == 0 {
+		return DecodeError{"line", hdrOffset, "invalid line range: 0"}
+	}
 
 	// Opcode length table
 	r.opcodeBase = int(buf.uint8())
 	r.opcodeLengths = make([]int, r.opcodeBase)
 	for i := 1; i < r.opcodeBase; i++ {
-		off := buf.off
 		r.opcodeLengths[i] = int(buf.uint8())
-		if buf.err != nil {
-			return buf.err
-		}
-		knownLength, ok := knownOpcodeLengths[i]
-		if ok && r.opcodeLengths[i] != knownLength {
-			return DecodeError{"line", off, fmt.Sprintf("opcode %d expected to have length %d, but has length %d", i, knownLength, r.opcodeLengths[i])}
+	}
+
+	// Validate opcode lengths
+	if buf.err != nil {
+		return buf.err
+	}
+	for i, length := range r.opcodeLengths {
+		if known, ok := knownOpcodeLengths[i]; ok && known != length {
+			return DecodeError{"line", hdrOffset, fmt.Sprintf("opcode %d expected to have length %d, but has length %d", i, known, length)}
 		}
 	}
 
@@ -153,10 +205,6 @@ func (r *LineReader) readPrologue() error {
 
 	// Skip to the beginning of the statement program
 	buf.skip(int(programOffset - buf.off))
-
-	// Create initial line program state
-	r.state = LineEntry{Address: 0, FileIndex: 1, FileEntry: nil, Line: 1, Column: 0, IsStmt: defaultIsStmt, BasicBlock: false}
-	r.updateFileEntry()
 
 	return buf.err
 }
@@ -225,14 +273,19 @@ func (r *LineReader) Next() (*LineEntry, error) {
 // knownOpcodeLengths gives the opcode lengths (in varint arguments)
 // of known standard opcodes.
 var knownOpcodeLengths = map[int]int{
-	lnsCopy:          0,
-	lnsAdvancePC:     1,
-	lnsAdvanceLine:   1,
-	lnsSetFile:       1,
-	lnsNegateStmt:    0,
-	lnsSetBasicBlock: 0,
-	lnsConstAddPC:    0,
-	// lnsFixedAdvancePC takes a uint8 rather than a varint
+	lnsCopy:             0,
+	lnsAdvancePC:        1,
+	lnsAdvanceLine:      1,
+	lnsSetFile:          1,
+	lnsNegateStmt:       0,
+	lnsSetBasicBlock:    0,
+	lnsConstAddPC:       0,
+	lnsSetPrologueEnd:   0,
+	lnsSetEpilogueBegin: 0,
+	lnsSetISA:           1,
+	// lnsFixedAdvancePC takes a uint8 rather than a varint; it's
+	// unclear what length the header is supposed to claim, so
+	// ignore it.
 }
 
 // step processes the next opcode and updates r.state.  If the opcode
@@ -241,14 +294,11 @@ func (r *LineReader) step() *LineEntry {
 	opcode := int(r.buf.uint8())
 
 	if opcode >= r.opcodeBase {
-		// Special opcode [DWARF2 6.2.5.1]
+		// Special opcode [DWARF2 6.2.5.1, DWARF4 6.2.5.1]
 		adjustedOpcode := opcode - r.opcodeBase
-		addressDelta := adjustedOpcode / r.lineRange
+		r.advancePC(adjustedOpcode / r.lineRange)
 		lineDelta := r.lineBase + int(adjustedOpcode)%r.lineRange
-
 		r.state.Line += lineDelta
-		r.state.Address += uint64(r.minInstructionLength * addressDelta)
-
 		goto emit
 	}
 
@@ -275,6 +325,10 @@ func (r *LineReader) step() *LineEntry {
 				return nil
 			}
 			r.updateFileEntry()
+
+		case lneSetDiscriminator:
+			// [DWARF4 6.2.5.3]
+			r.state.Discriminator = int(r.buf.uint())
 		}
 
 		r.buf.skip(int(startOff + length - r.buf.off))
@@ -288,7 +342,7 @@ func (r *LineReader) step() *LineEntry {
 		goto emit
 
 	case lnsAdvancePC:
-		r.state.Address += uint64(r.minInstructionLength) * r.buf.uint()
+		r.advancePC(int(r.buf.uint()))
 
 	case lnsAdvanceLine:
 		r.state.Line += int(r.buf.int())
@@ -307,10 +361,20 @@ func (r *LineReader) step() *LineEntry {
 		r.state.BasicBlock = true
 
 	case lnsConstAddPC:
-		r.state.Address += uint64(r.minInstructionLength * ((255 - r.opcodeBase) / r.lineRange))
+		r.advancePC((255 - r.opcodeBase) / r.lineRange)
 
 	case lnsFixedAdvancePC:
 		r.state.Address += uint64(r.buf.uint16())
+
+	// DWARF3 standard opcodes [DWARF3 6.2.5.2]
+	case lnsSetPrologueEnd:
+		r.state.PrologueEnd = true
+
+	case lnsSetEpilogueBegin:
+		r.state.EpilogueBegin = true
+
+	case lnsSetISA:
+		r.state.ISA = int(r.buf.uint())
 
 	default:
 		// Unhandled standard opcode.  Skip the number of
@@ -322,7 +386,16 @@ func (r *LineReader) step() *LineEntry {
 	return nil
 
 emit:
-	emitx := r.state
+	result := r.state
 	r.state.BasicBlock = false
-	return &emitx
+	r.state.PrologueEnd = false
+	r.state.EpilogueBegin = false
+	r.state.Discriminator = 0
+	return &result
+}
+
+func (r *LineReader) advancePC(opAdvance int) {
+	opIndex := r.state.OpIndex + opAdvance
+	r.state.Address += uint64(r.minInstructionLength * (opIndex / r.maxOpsPerInstruction))
+	r.state.OpIndex = opIndex % r.maxOpsPerInstruction
 }

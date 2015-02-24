@@ -15,6 +15,11 @@ const (
 	lnsSetBasicBlock  = 7
 	lnsConstAddPC     = 8
 	lnsFixedAdvancePC = 9
+
+	// DWARF 3
+	lnsSetPrologueEnd   = 10
+	lnsSetEpilogueBegin = 11
+	lnsSetISA           = 12
 )
 
 // Statement program extended opcode encodings
@@ -22,4 +27,7 @@ const (
 	lneEndSequence = 1
 	lneSetAddress  = 2
 	lneDefineFile  = 3
+
+	// DWARF 4
+	lneSetDiscriminator = 4
 )
