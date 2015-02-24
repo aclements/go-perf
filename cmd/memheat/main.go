@@ -383,6 +383,9 @@ func limitFuncs(stats []*lineStat, limit int) []*lineStat {
 
 func sections(count int, newGroup func(int) bool) [][2]int {
 	sections := make([][2]int, 0)
+	if count == 0 {
+		return sections
+	}
 
 	start := 0
 	for i := 1; i < count; i++ {
