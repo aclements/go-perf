@@ -245,27 +245,32 @@ func (r *LineReader) updateFileEntry() {
 	}
 }
 
-// Next reads the next row from the line table.  Rows are always in
-// order of increasing Address, but Line may go forward or backward.
-// It returns nil, nil when it reaches the end of the line table.  It
-// returns an error if the data cannot be decoded as a line table.
-func (r *LineReader) Next() (*LineEntry, error) {
+// Next reads the next row from the line table into entry.  On the
+// last row, entry.EndSequence will be set.
+//
+// Rows are always in order of increasing Address, but Line may go
+// forward or backward.
+func (r *LineReader) Next(entry *LineEntry) error {
 	if r.buf.err != nil || r.state.EndSequence {
-		return nil, r.buf.err
+		return r.buf.err
+	}
+	if r.state.EndSequence {
+		*entry = r.state
+		return nil
 	}
 
 	// Execute opcodes until we reach an opcode that emits a line
 	// table entry
 	for {
 		if len(r.buf.data) == 0 {
-			return nil, DecodeError{"line", r.buf.off, "line number table ended without a DW_LNE_end_sequence opcode"}
+			return DecodeError{"line", r.buf.off, "line number table ended without a DW_LNE_end_sequence opcode"}
 		}
-		entry := r.step()
+		emit := r.step(entry)
 		if r.buf.err != nil {
-			return nil, r.buf.err
+			return r.buf.err
 		}
-		if entry != nil {
-			return entry, nil
+		if emit {
+			return nil
 		}
 	}
 }
@@ -289,8 +294,9 @@ var knownOpcodeLengths = map[int]int{
 }
 
 // step processes the next opcode and updates r.state.  If the opcode
-// emits a row in the line table, this returns the emitted row.
-func (r *LineReader) step() *LineEntry {
+// emits a row in the line table, this updates *entry and returns
+// true.
+func (r *LineReader) step(entry *LineEntry) bool {
 	opcode := int(r.buf.uint8())
 
 	if opcode >= r.opcodeBase {
@@ -319,10 +325,10 @@ func (r *LineReader) step() *LineEntry {
 		case lneDefineFile:
 			if done, err := r.readFileEntry(); err != nil {
 				r.buf.err = err
-				return nil
+				return false
 			} else if done {
 				r.buf.err = DecodeError{"line", startOff, "malformed DW_LNE_define_file operation"}
-				return nil
+				return false
 			}
 			r.updateFileEntry()
 
@@ -383,15 +389,15 @@ func (r *LineReader) step() *LineEntry {
 			r.buf.uint()
 		}
 	}
-	return nil
+	return false
 
 emit:
-	result := r.state
+	*entry = r.state
 	r.state.BasicBlock = false
 	r.state.PrologueEnd = false
 	r.state.EpilogueBegin = false
 	r.state.Discriminator = 0
-	return &result
+	return true
 }
 
 func (r *LineReader) advancePC(opAdvance int) {
