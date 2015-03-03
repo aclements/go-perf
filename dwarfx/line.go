@@ -7,6 +7,7 @@ package dwarfx
 import (
 	"debug/dwarf"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"path"
 )
@@ -118,7 +119,7 @@ type LineEntry struct {
 
 	// EndSequence indicates that Address is the first byte after
 	// the end of a sequence of target machine instructions.  If
-	// this is set, the other fields in the LineEntry are not
+	// this is set, only this and the Address field are
 	// meaningful.
 	//
 	// TODO: Is it possible to have an EndSequence in the middle
@@ -533,4 +534,65 @@ func (r *LineReader) Reset() {
 		Discriminator: 0,
 	}
 	r.updateFileEntry()
+}
+
+// PCTooSmall is the error returned by ScanPC when the seek PC is
+// less than the smallest PC covered by a line table.
+var PCTooSmall = errors.New("PCTooSmall")
+
+// PCTooLarge is the error returned by ScanPC when the seek PC is
+// larger than the largest PC covered by a line table.
+var PCTooLarge = errors.New("PCTooLarge")
+
+// SeekPC sets *entry to the LineEntry that includes pc and positions
+// the reader on the next entry in the line table.  If necessary, this
+// will seek backwards to find pc.
+//
+// If pc is less than the smallest PC covered by this line table, this
+// will position the reader on the first entry and return PCTooSmall.
+// If pc is larger than the largest PC covered by this line table,
+// this will position the reader on the last entry and return
+// PCTooLarge.
+//
+// Note that DWARF line tables only permit sequential, forward scans.
+// Hence, in the worst case, this takes linear time in the size of the
+// line table.  If the caller wishes to do repeated fast PC lookups,
+// it should build an appropriate index of the line table.
+func (r *LineReader) SeekPC(pc uint64, entry *LineEntry) error {
+	if err := r.Next(entry); err != nil {
+		return err
+	}
+	if entry.Address > pc {
+		// We're too far.  Start at the beginning of the table
+		r.Reset()
+		if err := r.Next(entry); err != nil {
+			return err
+		}
+		if entry.Address > pc {
+			// The whole table starts after pc
+			r.Reset()
+			return PCTooSmall
+		}
+	}
+
+	// Scan until we pass pc, then back up one
+	for {
+		var next LineEntry
+		pos := r.Tell()
+		if err := r.Next(&next); err != nil {
+			return err
+		}
+		if next.Address > pc {
+			// entry is the desired entry.  Back up the
+			// cursor to "next" and return success.
+			r.Seek(pos)
+			return nil
+		}
+		if next.EndSequence {
+			// pc is past the end of the line table
+			r.Seek(pos)
+			return PCTooLarge
+		}
+		*entry = next
+	}
 }
