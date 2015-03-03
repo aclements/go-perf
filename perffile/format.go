@@ -76,6 +76,7 @@ type fileAttr struct {
 	IDs  fileSection // array of attrID, one per core/thread
 }
 
+// TODO: Make public
 type attrID uint64
 
 // TODO: Consider separating on-disk perf_event_attr structure from
@@ -160,9 +161,9 @@ const (
 	SampleFormatTransaction
 )
 
-// idOffset returns the on-disk byte offset of the ID field of samples
-// with this sample format.
-func (s SampleFormat) idOffset() int {
+// sampleIDOffset returns the on-disk byte offset of the ID field of
+// sample records with this sample format.
+func (s SampleFormat) sampleIDOffset() int {
 	if s&SampleFormatIdentifier != 0 {
 		return 0
 	}
@@ -186,6 +187,33 @@ func (s SampleFormat) idOffset() int {
 	return off
 }
 
+// recordIDOffset returns the on-disk byte offset of the ID field of
+// non-sample records relative to the end of the sample.
+func (s SampleFormat) recordIDOffset() int {
+	if s&SampleFormatIdentifier != 0 {
+		return -8
+	}
+	if s&SampleFormatID == 0 {
+		return -1
+	}
+
+	off := 0
+	if s&SampleFormatCPU != 0 {
+		off -= 8
+	}
+	if s&SampleFormatStreamID != 0 {
+		off -= 8
+	}
+	return off - 8
+}
+
+// trailerBytes returns the length in the sample_id trailer for
+// non-sample records.
+func (s SampleFormat) trailerBytes() int {
+	s &= SampleFormatTID | SampleFormatTime | SampleFormatID | SampleFormatStreamID | SampleFormatCPU | SampleFormatIdentifier
+	return 8 * weight(uint64(s))
+}
+
 // perf_event_read_format from include/uapi/linux/perf_event.h
 type ReadFormat uint64
 
@@ -197,9 +225,63 @@ const (
 )
 
 // Bitmask in perf_event_attr from include/uapi/linux/perf_event.h
-//
-// TODO: Define these as we need them
 type EventFlags uint64
+
+const (
+	// Event is disabled by default
+	EventFlagDisabled EventFlags = 1 << iota
+	// Children inherit this event
+	EventFlagInherit
+	// Event must always be on the PMU
+	EventFlagPinned
+	// Event is only group on PMU
+	EventFlagExclusive
+	// Don't count events in user/kernel/hypervisor/when idle
+	EventFlagExcludeUser
+	EventFlagExcludeKernel
+	EventFlagExcludeHypervisor
+	EventFlagExcludeIdle
+	// Include mmap data
+	EventFlagMmap
+	// Include comm data
+	EventFlagComm
+	// Use frequency, not period
+	EventFlagFreq
+	// Per task counts
+	EventFlagInheritStat
+	// Next exec enables this event
+	EventFlagEnableOnExec
+	// Trace fork/exit
+	EventFlagTask
+	// WakeupEventsOrWatermark is watermark
+	EventFlagWakeupWatermark
+
+	// Skip two bits here for EventFlagPreciseIPMask
+
+	// Non-exec mmap data
+	EventFlagMmapData EventFlags = 1 << (2 + iota)
+	// All events have SampleField fields
+	EventFlagSampleIDAll
+	// Don't count events in host/guest
+	EventFlagExcludeHost
+	EventFlagExcludeGuest
+	// Don't include kernel/user callchains
+	EventFlagExcludeCallchainKernel
+	EventFlagExcludeCallchainUser
+	// Include inode data in mmap events
+	EventFlagMmapInodeData
+	// Flag comm events that are due to an exec
+	EventFlagCommExec
+)
+
+const (
+	// TODO: Pull precise IP out; it's not a flag
+	EventFlagPreciseArbitrarySkid EventFlags = iota << 15
+	EventFlagPreciseConstantSkid
+	EventFlagPreciseTryZeroSkid
+	EventFlagPreciseZeroSkip
+	EventFlagPreciseIPMask EventFlags = 0x3 << 15
+)
 
 // perf_event_header from include/uapi/linux/perf_event.h
 type recordHeader struct {
@@ -222,6 +304,18 @@ const (
 	RecordTypeRead
 	RecordTypeSample
 	recordTypeMmap2 // internal extended RecordTypeMmap
+
+	recordTypeUserStart RecordType = 64
+)
+
+// perf_user_event_type in tools/perf/util/event.h
+const (
+	RecordTypeHeaderAttr      RecordType = recordTypeUserStart + iota
+	recordTypeHeaderEventType            // deprecated
+	RecordTypeHeaderTracingData
+	RecordTypeHeaderBuildID
+	RecordTypeHeaderFinishedRound
+	RecordTypeHeaderIDIndex
 )
 
 // PERF_RECORD_MISC_* from include/uapi/linux/perf_event.h
@@ -238,9 +332,35 @@ type Record interface {
 	Type() RecordType
 }
 
+// RecordCommon stores fields that are common to all record types, as
+// well as additional metadata.
+//
+// Many fields are optional and their presence is determined by the
+// sample format in the perf.data file.  Some record types guarantee
+// that some of these fields will be filled.
+type RecordCommon struct {
+	// Byte offset of this event in the perf.data file
+	Offset int64
+
+	// Format is a bit mask of SampleFormat* values that indicate
+	// which optional fields of this record are valid.
+	Format SampleFormat
+
+	// The event, if any, associated with this record.
+	EventAttr *EventAttr
+
+	PID, TID int    // if SampleFormatTID
+	Time     uint64 // if SampleFormatTime
+	ID       attrID // if SampleFormatID or SampleFormatIdentifier
+	StreamID uint64 // if SampleFormatStreamID
+	CPU, Res uint32 // if SampleFormatCPU
+}
+
 // Placeholder for unknown or unimplemented record types
 type RecordUnknown struct {
 	recordHeader
+
+	RecordCommon
 
 	Data []byte
 }
@@ -250,9 +370,11 @@ func (r *RecordUnknown) Type() RecordType {
 }
 
 type RecordMmap struct {
+	// RecordCommon.PID and .TID will always be filled
+	RecordCommon
+
 	Data bool // from header.misc
 
-	PID, TID           int
 	Addr, Len, PgOff   uint64
 	Major, Minor       uint32
 	Ino, InoGeneration uint64
@@ -265,8 +387,10 @@ func (r *RecordMmap) Type() RecordType {
 }
 
 type RecordLost struct {
-	EventAttr *EventAttr
-	NumLost   uint64
+	// RecordCommon.ID and .EventAttr will always be filled
+	RecordCommon
+
+	NumLost uint64
 }
 
 func (r *RecordLost) Type() RecordType {
@@ -274,10 +398,12 @@ func (r *RecordLost) Type() RecordType {
 }
 
 type RecordComm struct {
+	// RecordCommon.PID and .TID will always be filled
+	RecordCommon
+
 	Exec bool // from header.misc
 
-	PID, TID int
-	Comm     string
+	Comm string
 }
 
 func (r *RecordComm) Type() RecordType {
@@ -285,9 +411,10 @@ func (r *RecordComm) Type() RecordType {
 }
 
 type RecordExit struct {
-	PID, PPID int
-	TID, PTID int
-	Time      uint64
+	// RecordCommon.PID, .TID, and .Time will always be filled
+	RecordCommon
+
+	PPID, PTID int
 }
 
 func (r *RecordExit) Type() RecordType {
@@ -295,10 +422,11 @@ func (r *RecordExit) Type() RecordType {
 }
 
 type RecordThrottle struct {
-	Enable    bool
-	Time      uint64
-	EventAttr *EventAttr
-	StreamID  uint64
+	// RecordCommon.Time, .ID, and .StreamID, and .EventAttr will
+	// always be filled
+	RecordCommon
+
+	Enable bool
 }
 
 func (r *RecordThrottle) Type() RecordType {
@@ -306,9 +434,10 @@ func (r *RecordThrottle) Type() RecordType {
 }
 
 type RecordFork struct {
-	PID, PPID int
-	TID, PTID int
-	Time      uint64
+	// RecordCommon.PID, .TID, and .Time will always be filled
+	RecordCommon
+
+	PPID, PTID int
 }
 
 func (r *RecordFork) Type() RecordType {
@@ -316,18 +445,17 @@ func (r *RecordFork) Type() RecordType {
 }
 
 type RecordSample struct {
-	EventAttr *EventAttr
+	// RecordCommon.EventAttr will always be filled.
+	// RecordCommon.Format descibes the optional fields in this
+	// structure, as well as the optional common fields.
+	RecordCommon
 
 	CPUMode CPUMode // from header.misc
 	ExactIP bool    // from header.misc
 
-	IP       uint64 // if SampleFormatIP
-	PID, TID int    // if SampleFormatTID
-	Time     uint64 // if SampleFormatTime
-	Addr     uint64 // if SampleFormatAddr
-	StreamID uint64 // if SampleFormatStreamID
-	CPU, Res uint32 // if SampleFormatCPU
-	Period   uint64 // if SampleFormatPeriod
+	IP     uint64 // if SampleFormatIP
+	Addr   uint64 // if SampleFormatAddr
+	Period uint64 // if SampleFormatPeriod
 
 	// Raw event counter values.  If this is an event group, this
 	// slice will have more than one element; otherwise, it will
@@ -356,8 +484,12 @@ func (r *RecordSample) Type() RecordType {
 }
 
 func (r *RecordSample) String() string {
-	f := r.EventAttr.SampleFormat
-	s := fmt.Sprintf("{EventAttr:%p CPUMode:%v ExactIP:%v", r.EventAttr, r.CPUMode, r.ExactIP)
+	// TODO: Stringers for other record types
+	f := r.Format
+	s := fmt.Sprintf("{Offset:%#x Format:%#x EventAttr:%p CPUMode:%v ExactIP:%v", r.Offset, r.Format, r.EventAttr, r.CPUMode, r.ExactIP)
+	if f&(SampleFormatID|SampleFormatIdentifier) != 0 {
+		s += fmt.Sprintf(" ID:%d", r.ID)
+	}
 	if f&SampleFormatIP != 0 {
 		s += fmt.Sprintf(" IP:%#x", r.IP)
 	}

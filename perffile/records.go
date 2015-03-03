@@ -53,9 +53,14 @@ func (r *Records) Err() error {
 // Next, so if the caller may need the record after another call to
 // Next, it must make its own copy.
 func (r *Records) Next() bool {
+	// See perf_evsel__parse_sample
 	if r.err != nil {
 		return false
 	}
+
+	var common RecordCommon
+	offset, _ := r.sr.Seek(0, 1)
+	common.Offset = offset + int64(r.f.hdr.Data.Offset)
 
 	// Read record header
 	var hdr recordHeader
@@ -77,41 +82,45 @@ func (r *Records) Next() bool {
 		return false
 	}
 
+	// Parse common sample_id fields
+	if r.f.sampleIDAll && hdr.Type != RecordTypeSample && hdr.Type < recordTypeUserStart {
+		r.parseCommon(bd, &common)
+	}
+
 	// Parse record
 	// TODO: Don't array out-of-bounds on short records
-	// TODO: Decode optional sample_id for all types except RecordTypeSample
 	switch hdr.Type {
 	default:
 		// As far as I can tell, RecordTypeRead can never
 		// appear in a perf.data file.
-		r.Record = &RecordUnknown{hdr, bd.buf}
+		r.Record = &RecordUnknown{hdr, common, bd.buf}
 
 	case RecordTypeMmap:
-		r.Record = r.parseMmap(bd, &hdr, false)
+		r.Record = r.parseMmap(bd, &hdr, &common, false)
 
 	case RecordTypeLost:
-		r.Record = r.parseLost(bd, &hdr)
+		r.Record = r.parseLost(bd, &hdr, &common)
 
 	case RecordTypeComm:
-		r.Record = r.parseComm(bd, &hdr)
+		r.Record = r.parseComm(bd, &hdr, &common)
 
 	case RecordTypeExit:
-		r.Record = r.parseExit(bd, &hdr)
+		r.Record = r.parseExit(bd, &hdr, &common)
 
 	case RecordTypeThrottle:
-		r.Record = r.parseThrottle(bd, &hdr, true)
+		r.Record = r.parseThrottle(bd, &hdr, &common, true)
 
 	case RecordTypeUnthrottle:
-		r.Record = r.parseThrottle(bd, &hdr, false)
+		r.Record = r.parseThrottle(bd, &hdr, &common, false)
 
 	case RecordTypeFork:
-		r.Record = r.parseFork(bd, &hdr)
+		r.Record = r.parseFork(bd, &hdr, &common)
 
 	case RecordTypeSample:
 		r.Record = r.parseSample(bd, &hdr)
 
 	case recordTypeMmap2:
-		r.Record = r.parseMmap(bd, &hdr, true)
+		r.Record = r.parseMmap(bd, &hdr, &common, true)
 	}
 	if r.err != nil {
 		return false
@@ -127,8 +136,41 @@ func (r *Records) getAttr(id attrID) *EventAttr {
 	return nil
 }
 
-func (r *Records) parseMmap(bd *bufDecoder, hdr *recordHeader, v2 bool) Record {
+// parseCommon parses the common sample_id structure in the trailer of
+// non-sample records.
+func (r *Records) parseCommon(bd *bufDecoder, o *RecordCommon) bool {
+	// Get EventAttr ID
+	if r.f.recordIDOffset == -1 {
+		o.ID = 0
+	} else {
+		o.ID = attrID(bd.order.Uint64(bd.buf[len(bd.buf)+r.f.recordIDOffset:]))
+	}
+	o.EventAttr = r.getAttr(o.ID)
+	if o.EventAttr == nil {
+		return false
+	}
+
+	// Narrow decoder to the trailer
+	commonLen := o.EventAttr.SampleFormat.trailerBytes()
+	bd = &bufDecoder{bd.buf[len(bd.buf)-commonLen:], bd.order}
+
+	// Decode trailer
+	t := o.EventAttr.SampleFormat
+	o.Format = t
+	o.PID = int(bd.i32If(t&SampleFormatTID != 0))
+	o.TID = int(bd.i32If(t&SampleFormatTID != 0))
+	o.Time = bd.u64If(t&SampleFormatTime != 0)
+	bd.u64If(t&SampleFormatID != 0)
+	o.StreamID = bd.u64If(t&SampleFormatStreamID != 0)
+	o.CPU = bd.u32If(t&SampleFormatCPU != 0)
+	o.Res = bd.u32If(t&SampleFormatCPU != 0)
+	return true
+}
+
+func (r *Records) parseMmap(bd *bufDecoder, hdr *recordHeader, common *RecordCommon, v2 bool) Record {
 	o := &r.recordMmap
+	o.RecordCommon = *common
+	o.Format |= SampleFormatTID
 
 	// Decode hdr.Misc
 	o.Data = (hdr.Misc&recordMiscMmapData != 0)
@@ -146,12 +188,21 @@ func (r *Records) parseMmap(bd *bufDecoder, hdr *recordHeader, v2 bool) Record {
 	return o
 }
 
-func (r *Records) parseLost(bd *bufDecoder, hdr *recordHeader) Record {
-	return &RecordLost{r.getAttr(attrID(bd.u64())), bd.u64()}
+func (r *Records) parseLost(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordLost{RecordCommon: *common}
+	o.Format |= SampleFormatID
+
+	o.ID = attrID(bd.u64())
+	o.EventAttr = r.getAttr(o.ID)
+	o.NumLost = bd.u64()
+
+	return o
 }
 
-func (r *Records) parseComm(bd *bufDecoder, hdr *recordHeader) Record {
+func (r *Records) parseComm(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
 	o := &r.recordComm
+	o.RecordCommon = *common
+	o.Format |= SampleFormatTID
 
 	// Decode hdr.Misc
 	o.Exec = (hdr.Misc&recordMiscCommExec != 0)
@@ -163,8 +214,10 @@ func (r *Records) parseComm(bd *bufDecoder, hdr *recordHeader) Record {
 	return o
 }
 
-func (r *Records) parseExit(bd *bufDecoder, hdr *recordHeader) Record {
+func (r *Records) parseExit(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
 	o := &r.recordExit
+	o.RecordCommon = *common
+	o.Format |= SampleFormatTID | SampleFormatTime
 
 	o.PID, o.PPID = int(bd.i32()), int(bd.i32())
 	o.TID, o.PTID = int(bd.i32()), int(bd.i32())
@@ -173,8 +226,9 @@ func (r *Records) parseExit(bd *bufDecoder, hdr *recordHeader) Record {
 	return o
 }
 
-func (r *Records) parseThrottle(bd *bufDecoder, hdr *recordHeader, enable bool) Record {
-	o := &RecordThrottle{Enable: enable}
+func (r *Records) parseThrottle(bd *bufDecoder, hdr *recordHeader, common *RecordCommon, enable bool) Record {
+	o := &RecordThrottle{RecordCommon: *common, Enable: enable}
+	o.Format |= SampleFormatTime | SampleFormatID | SampleFormatStreamID
 
 	o.Time = bd.u64()
 	// Throttle events always have an event attr ID, even if the
@@ -191,8 +245,10 @@ func (r *Records) parseThrottle(bd *bufDecoder, hdr *recordHeader, enable bool) 
 	return o
 }
 
-func (r *Records) parseFork(bd *bufDecoder, hdr *recordHeader) Record {
+func (r *Records) parseFork(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
 	o := &r.recordFork
+	o.RecordCommon = *common
+	o.Format |= SampleFormatTID | SampleFormatTime
 
 	o.PID, o.PPID = int(bd.i32()), int(bd.i32())
 	o.TID, o.PTID = int(bd.i32()), int(bd.i32())
@@ -205,24 +261,23 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader) Record {
 	o := &r.recordSample
 
 	// Get sample EventAttr ID
-	var attr attrID
-	if r.f.idOffset == -1 {
-		attr = 0
+	if r.f.sampleIDOffset == -1 {
+		o.ID = 0
 	} else {
-		attr = attrID(bd.order.Uint64(bd.buf[r.f.idOffset:]))
+		o.ID = attrID(bd.order.Uint64(bd.buf[r.f.sampleIDOffset:]))
 	}
-	eventAttr := r.getAttr(attr)
-	if eventAttr == nil {
+	o.EventAttr = r.getAttr(o.ID)
+	if o.EventAttr == nil {
 		return nil
 	}
-	o.EventAttr = eventAttr
 
 	// Decode hdr.Misc
 	o.CPUMode = CPUMode(hdr.Misc & recordMiscCPUModeMask)
 	o.ExactIP = (hdr.Misc&recordMiscExactIP != 0)
 
 	// Decode the rest of the sample
-	t := eventAttr.SampleFormat
+	t := o.EventAttr.SampleFormat
+	o.Format = t
 	bd.u64If(t&SampleFormatIdentifier != 0)
 	o.IP = bd.u64If(t&SampleFormatIP != 0)
 	o.PID = int(bd.i32If(t&SampleFormatTID != 0))
@@ -236,7 +291,7 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader) Record {
 	o.Period = bd.u64If(t&SampleFormatPeriod != 0)
 
 	if t&SampleFormatRead != 0 {
-		r.parseReadFormat(bd, eventAttr.ReadFormat, &o.SampleRead)
+		r.parseReadFormat(bd, o.EventAttr.ReadFormat, &o.SampleRead)
 	}
 
 	if t&SampleFormatCallchain != 0 {
@@ -270,7 +325,7 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader) Record {
 
 	if t&SampleFormatRegsUser != 0 {
 		o.RegsABI = SampleRegsABI(bd.u64())
-		count := weight(eventAttr.SampleRegsUser)
+		count := weight(o.EventAttr.SampleRegsUser)
 		if o.Regs == nil || cap(o.Regs) < count {
 			o.Regs = make([]uint64, count)
 		} else {

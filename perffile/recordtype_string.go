@@ -8,14 +8,25 @@ package perffile
 
 import "fmt"
 
-const _RecordType_name = "RecordTypeMmapRecordTypeLostRecordTypeCommRecordTypeExitRecordTypeThrottleRecordTypeUnthrottleRecordTypeForkRecordTypeReadRecordTypeSamplerecordTypeMmap2"
+const (
+	_RecordType_name_0 = "RecordTypeMmapRecordTypeLostRecordTypeCommRecordTypeExitRecordTypeThrottleRecordTypeUnthrottleRecordTypeForkRecordTypeReadRecordTypeSamplerecordTypeMmap2"
+	_RecordType_name_1 = "recordTypeUserStartrecordTypeHeaderEventTypeRecordTypeHeaderTracingDataRecordTypeHeaderBuildIDRecordTypeHeaderFinishedRoundRecordTypeHeaderIDIndex"
+)
 
-var _RecordType_index = [...]uint8{0, 14, 28, 42, 56, 74, 94, 108, 122, 138, 153}
+var (
+	_RecordType_index_0 = [...]uint8{0, 14, 28, 42, 56, 74, 94, 108, 122, 138, 153}
+	_RecordType_index_1 = [...]uint8{0, 19, 44, 71, 94, 123, 146}
+)
 
 func (i RecordType) String() string {
-	i -= 1
-	if i+1 >= RecordType(len(_RecordType_index)) {
-		return fmt.Sprintf("RecordType(%d)", i+1)
+	switch {
+	case 1 <= i && i <= 10:
+		i -= 1
+		return _RecordType_name_0[_RecordType_index_0[i]:_RecordType_index_0[i+1]]
+	case 64 <= i && i <= 69:
+		i -= 64
+		return _RecordType_name_1[_RecordType_index_1[i]:_RecordType_index_1[i+1]]
+	default:
+		return fmt.Sprintf("RecordType(%d)", i)
 	}
-	return _RecordType_name[_RecordType_index[i]:_RecordType_index[i+1]]
 }

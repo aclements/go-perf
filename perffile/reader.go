@@ -22,7 +22,10 @@ type File struct {
 
 	featureSections map[feature]fileSection
 
-	idOffset int // byte offset of AttrID in sample
+	sampleIDOffset int // byte offset of AttrID in sample
+
+	sampleIDAll    bool // non-samples have sample_id trailer
+	recordIDOffset int  // byte offset of AttrID in non-sample, from end
 }
 
 // New reads a "perf.data" file from r.
@@ -93,18 +96,35 @@ func New(r io.ReaderAt) (*File, error) {
 			return nil, fmt.Errorf("sample format has IDs, but events don't have IDs")
 		}
 		file.idToAttr[0] = &file.attrs[0].Attr
-		file.idOffset = -1
+		file.sampleIDOffset = -1
+		file.sampleIDAll = file.attrs[0].Attr.Flags&EventFlagSampleIDAll != 0
+		file.recordIDOffset = -1
 	} else {
-		// Compute offset of sample AttrID field
-		file.idOffset = -1
+		// Compute offset of AttrID fields
+		file.sampleIDOffset = -1
+		file.sampleIDAll = true
+		file.recordIDOffset = -1
 		for _, attr := range file.attrs {
-			x := attr.Attr.SampleFormat.idOffset()
+			x := attr.Attr.SampleFormat.sampleIDOffset()
 			if x == -1 {
 				return nil, fmt.Errorf("events have no ID field")
-			} else if file.idOffset == -1 {
-				file.idOffset = x
-			} else if file.idOffset != x {
-				return nil, fmt.Errorf("events have incompatible ID offsets %d and %d", file.idOffset, x)
+			} else if file.sampleIDOffset == -1 {
+				file.sampleIDOffset = x
+			} else if file.sampleIDOffset != x {
+				return nil, fmt.Errorf("events have incompatible ID offsets %d and %d", file.sampleIDOffset, x)
+			}
+
+			if attr.Attr.Flags&EventFlagSampleIDAll == 0 {
+				file.sampleIDAll = false
+				continue
+			}
+			x = attr.Attr.SampleFormat.recordIDOffset()
+			if x == -1 {
+				return nil, fmt.Errorf("records have no ID field")
+			} else if file.recordIDOffset == -1 {
+				file.recordIDOffset = x
+			} else if file.recordIDOffset != x {
+				return nil, fmt.Errorf("records have incompatible ID offsets %d and %d", file.recordIDOffset, x)
 			}
 		}
 	}
