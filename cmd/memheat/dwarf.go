@@ -112,10 +112,10 @@ func dwarfLineTable(elff *elf.File, dwarff *dwarf.Data) []*dwarfx.LineEntry {
 			var lent dwarfx.LineEntry
 			err := lr.Next(&lent)
 			if err != nil {
+				if err == dwarfx.EndOfTable {
+					break
+				}
 				log.Fatal(err)
-			}
-			if lent.EndSequence {
-				break
 			}
 			out = append(out, &lent)
 		}

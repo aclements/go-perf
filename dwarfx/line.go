@@ -36,8 +36,10 @@ type LineReader struct {
 	directories          []string
 	fileEntries          []*FileEntry
 
-	programOffset      dwarf.Offset // program offset in section
-	initialFileEntries int          // initial length of fileEntries
+	endOffset     dwarf.Offset // section offset of byte following program
+	programOffset dwarf.Offset // section offset of statement program
+
+	initialFileEntries int // initial length of fileEntries
 
 	// Current "statement machine" state
 	state LineEntry
@@ -120,12 +122,10 @@ type LineEntry struct {
 	// EndSequence indicates that Address is the first byte after
 	// the end of a sequence of target machine instructions.  If
 	// this is set, only this and the Address field are
-	// meaningful.
-	//
-	// TODO: Is it possible to have an EndSequence in the middle
-	// of a compilation unit's line table?  A line table has to
-	// end with an EndSequence, but is that the only occurrence of
-	// an EndSequence?
+	// meaningful.  A line number table may contain information
+	// for multiple potentially disjoint instruction sequences.
+	// The last entry in a line table should always have
+	// EndSequence set.
 	EndSequence bool
 }
 
@@ -184,13 +184,13 @@ func NewLineReader(cu *dwarf.Entry, line []byte) (*LineReader, error) {
 		return nil, err
 	}
 
-	// Initialize statement program state
+	// Initialize line reader state
 	r.Reset()
 
 	return &r, nil
 }
 
-// readPrologue reads the statement program prologue from r.buf ad
+// readPrologue reads the statement program prologue from r.buf and
 // sets all of the prologue fields in r.
 func (r *LineReader) readPrologue() error {
 	buf := &r.buf
@@ -198,8 +198,9 @@ func (r *LineReader) readPrologue() error {
 	// Read basic prologue fields [DWARF2 6.2.4]
 	hdrOffset := buf.off
 	totalLength := dwarf.Offset(buf.uint32())
-	if totalLength < dwarf.Offset(len(buf.data)) {
-		buf.data = buf.data[:totalLength]
+	r.endOffset = hdrOffset + totalLength + 4
+	if r.endOffset > buf.off+dwarf.Offset(len(buf.data)) {
+		return DecodeError{"line", hdrOffset, fmt.Sprintf("line table end %d exceeds section size %d", r.endOffset, buf.off+dwarf.Offset(len(buf.data)))}
 	}
 	r.version = buf.uint16()
 	if buf.err == nil && (r.version < 2 || r.version > 4) {
@@ -320,25 +321,27 @@ func (r *LineReader) updateFileEntry() {
 	}
 }
 
-// Next reads the next row from the line table into entry.  On the
-// last row, entry.EndSequence will be set.
+// EndOfTable is the error returned by LineReader.Next when no more
+// line table entries are available.  This signals a graceful end of
+// the table.
+var EndOfTable = errors.New("EndOfTable")
+
+// Next sets *entry to the next row in this line table and moves to
+// the next row.  If there are no more entries and the line table is
+// properly terminated, it returns EndOfTable.
 //
 // Rows are always in order of increasing Address, but Line may go
 // forward or backward.
 func (r *LineReader) Next(entry *LineEntry) error {
-	if r.buf.err != nil || r.state.EndSequence {
+	if r.buf.err != nil {
 		return r.buf.err
-	}
-	if r.state.EndSequence {
-		*entry = r.state
-		return nil
 	}
 
 	// Execute opcodes until we reach an opcode that emits a line
 	// table entry
 	for {
 		if len(r.buf.data) == 0 {
-			return DecodeError{"line", r.buf.off, "line number table ended without a DW_LNE_end_sequence opcode"}
+			return EndOfTable
 		}
 		emit := r.step(entry)
 		if r.buf.err != nil {
@@ -393,6 +396,8 @@ func (r *LineReader) step(entry *LineEntry) bool {
 		switch opcode {
 		case lneEndSequence:
 			r.state.EndSequence = true
+			*entry = r.state
+			r.resetState()
 
 		case lneSetAddress:
 			r.state.Address = r.buf.addr()
@@ -415,7 +420,7 @@ func (r *LineReader) step(entry *LineEntry) bool {
 		r.buf.skip(int(startOff + length - r.buf.off))
 
 		if opcode == lneEndSequence {
-			goto emit
+			return true
 		}
 
 	// Standard opcodes [DWARF2 6.2.5.2]
@@ -503,7 +508,7 @@ func (r *LineReader) Tell() LineReaderPos {
 // pos must have been returned by a call to Tell on this line table.
 func (r *LineReader) Seek(pos LineReaderPos) {
 	r.buf.off = pos.off
-	r.buf.data = r.section[r.buf.off:]
+	r.buf.data = r.section[r.buf.off:r.endOffset]
 	r.fileEntries = r.fileEntries[:pos.numFileEntries]
 	r.state = pos.state
 }
@@ -513,12 +518,17 @@ func (r *LineReader) Seek(pos LineReaderPos) {
 func (r *LineReader) Reset() {
 	// Reset buffer to the program offset
 	r.buf.off = r.programOffset
-	r.buf.data = r.section[r.buf.off:]
+	r.buf.data = r.section[r.buf.off:r.endOffset]
 
 	// Reset file entries list
 	r.fileEntries = r.fileEntries[:r.initialFileEntries]
 
 	// Reset statement program state
+	r.resetState()
+}
+
+// resetState resets r.state to its default values
+func (r *LineReader) resetState() {
 	r.state = LineEntry{
 		Address:       0,
 		OpIndex:       0,
@@ -536,23 +546,17 @@ func (r *LineReader) Reset() {
 	r.updateFileEntry()
 }
 
-// PCTooSmall is the error returned by ScanPC when the seek PC is
-// less than the smallest PC covered by a line table.
-var PCTooSmall = errors.New("PCTooSmall")
-
-// PCTooLarge is the error returned by ScanPC when the seek PC is
-// larger than the largest PC covered by a line table.
-var PCTooLarge = errors.New("PCTooLarge")
+// UnknownPC is the error returned by ScanPC when the seek PC is not
+// covered by the line table.
+var UnknownPC = errors.New("UnknownPC")
 
 // SeekPC sets *entry to the LineEntry that includes pc and positions
 // the reader on the next entry in the line table.  If necessary, this
 // will seek backwards to find pc.
 //
-// If pc is less than the smallest PC covered by this line table, this
-// will position the reader on the first entry and return PCTooSmall.
-// If pc is larger than the largest PC covered by this line table,
-// this will position the reader on the last entry and return
-// PCTooLarge.
+// If pc is not covered by any entry in this line table, SeekPC
+// returns UnknownPC.  In this case, *entry and the final seek
+// position are unspecified.
 //
 // Note that DWARF line tables only permit sequential, forward scans.
 // Hence, in the worst case, this takes linear time in the size of the
@@ -571,7 +575,7 @@ func (r *LineReader) SeekPC(pc uint64, entry *LineEntry) error {
 		if entry.Address > pc {
 			// The whole table starts after pc
 			r.Reset()
-			return PCTooSmall
+			return UnknownPC
 		}
 	}
 
@@ -580,18 +584,20 @@ func (r *LineReader) SeekPC(pc uint64, entry *LineEntry) error {
 		var next LineEntry
 		pos := r.Tell()
 		if err := r.Next(&next); err != nil {
+			if err == EndOfTable {
+				return UnknownPC
+			}
 			return err
 		}
 		if next.Address > pc {
+			if entry.EndSequence {
+				// pc is in a hole in the table
+				return UnknownPC
+			}
 			// entry is the desired entry.  Back up the
 			// cursor to "next" and return success.
 			r.Seek(pos)
 			return nil
-		}
-		if next.EndSequence {
-			// pc is past the end of the line table
-			r.Seek(pos)
-			return PCTooLarge
 		}
 		*entry = next
 	}

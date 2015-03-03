@@ -335,8 +335,10 @@ func (m *mmapExtra) findIP(ip uint64) (fn string, line *dwarfx.LineEntry) {
 	i = sort.Search(len(m.linetab), func(i int) bool {
 		return ip < m.linetab[i].Address
 	})
-	if i != 0 {
+	if i != 0 && !m.linetab[i-1].EndSequence {
 		line = m.linetab[i-1]
+	} else {
+		fmt.Fprintf(os.Stderr, "failed to find line of IP %#x %d\n", ip, ip)
 	}
 
 	return
