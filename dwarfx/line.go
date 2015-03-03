@@ -169,8 +169,8 @@ func NewLineReader(cu *dwarf.Entry, line []byte) (*LineReader, error) {
 	// ourselves.
 	buf := makeBuf(nil, binary.LittleEndian, dwarf64Format{}, "line", dwarf.Offset(off), line[off:])
 
-	// Compilation directory is implicitly directories[0]
-	r := &LineReader{buf: buf, directories: []string{compDir}}
+	// The compilation directory is implicitly directories[0]
+	r := LineReader{buf: buf, directories: []string{compDir}}
 
 	// Read the prologue/header and initialize the state machine
 	if err := r.readPrologue(); err != nil {
@@ -194,7 +194,7 @@ func NewLineReader(cu *dwarf.Entry, line []byte) (*LineReader, error) {
 	}
 	r.updateFileEntry()
 
-	return r, nil
+	return &r, nil
 }
 
 // readPrologue reads the statement program prologue from r.buf, sets
