@@ -20,6 +20,9 @@ import (
 type LineReader struct {
 	buf buf
 
+	// Original .debug_line section data.  Used by Seek.
+	section []byte
+
 	// Prologue information
 	version              uint16
 	minInstructionLength int
@@ -31,6 +34,9 @@ type LineReader struct {
 	opcodeLengths        []int
 	directories          []string
 	fileEntries          []*FileEntry
+
+	programOffset      dwarf.Offset // program offset in section
+	initialFileEntries int          // initial length of fileEntries
 
 	// Current "statement machine" state
 	state LineEntry
@@ -170,7 +176,7 @@ func NewLineReader(cu *dwarf.Entry, line []byte) (*LineReader, error) {
 	buf := makeBuf(nil, binary.LittleEndian, dwarf64Format{}, "line", dwarf.Offset(off), line[off:])
 
 	// The compilation directory is implicitly directories[0]
-	r := LineReader{buf: buf, directories: []string{compDir}}
+	r := LineReader{buf: buf, section: line, directories: []string{compDir}}
 
 	// Read the prologue/header and initialize the state machine
 	if err := r.readPrologue(); err != nil {
@@ -178,28 +184,13 @@ func NewLineReader(cu *dwarf.Entry, line []byte) (*LineReader, error) {
 	}
 
 	// Initialize statement program state
-	r.state = LineEntry{
-		Address:       0,
-		OpIndex:       0,
-		FileIndex:     1,
-		FileEntry:     nil,
-		Line:          1,
-		Column:        0,
-		IsStmt:        r.defaultIsStmt,
-		BasicBlock:    false,
-		PrologueEnd:   false,
-		EpilogueBegin: false,
-		ISA:           0,
-		Discriminator: 0,
-	}
-	r.updateFileEntry()
+	r.Reset()
 
 	return &r, nil
 }
 
-// readPrologue reads the statement program prologue from r.buf, sets
-// all of the prologue fields in r, and skips r.buf to the beginning
-// of the statement program.
+// readPrologue reads the statement program prologue from r.buf ad
+// sets all of the prologue fields in r.
 func (r *LineReader) readPrologue() error {
 	buf := &r.buf
 
@@ -219,7 +210,7 @@ func (r *LineReader) readPrologue() error {
 		return DecodeError{"line", hdrOffset, fmt.Sprintf("unknown line table version %d", r.version)}
 	}
 	prologueLength := dwarf.Offset(buf.uint32())
-	programOffset := buf.off + prologueLength
+	r.programOffset = buf.off + prologueLength
 	r.minInstructionLength = int(buf.uint8())
 	if r.version >= 4 {
 		// [DWARF4 6.2.4]
@@ -287,9 +278,7 @@ func (r *LineReader) readPrologue() error {
 			break
 		}
 	}
-
-	// Skip to the beginning of the statement program
-	buf.skip(int(programOffset - buf.off))
+	r.initialFileEntries = len(r.fileEntries)
 
 	return buf.err
 }
@@ -491,4 +480,57 @@ func (r *LineReader) advancePC(opAdvance int) {
 	opIndex := r.state.OpIndex + opAdvance
 	r.state.Address += uint64(r.minInstructionLength * (opIndex / r.maxOpsPerInstruction))
 	r.state.OpIndex = opIndex % r.maxOpsPerInstruction
+}
+
+// A LineReaderPos represents a position in a line table.
+type LineReaderPos struct {
+	// Current offset in the DWARF line section
+	off dwarf.Offset
+	// Length of fileEntries
+	numFileEntries int
+	// Statement machine state at this offset
+	state LineEntry
+}
+
+// Tell returns the current position in the line table.
+func (r *LineReader) Tell() LineReaderPos {
+	return LineReaderPos{r.buf.off, len(r.fileEntries), r.state}
+}
+
+// Seek restores the line table reader to a position returned by Tell.
+//
+// pos must have been returned by a call to Tell on this line table.
+func (r *LineReader) Seek(pos LineReaderPos) {
+	r.buf.off = pos.off
+	r.buf.data = r.section[r.buf.off:]
+	r.fileEntries = r.fileEntries[:pos.numFileEntries]
+	r.state = pos.state
+}
+
+// Reset repositions the line table reader at the beginning of the
+// line table.
+func (r *LineReader) Reset() {
+	// Reset buffer to the program offset
+	r.buf.off = r.programOffset
+	r.buf.data = r.section[r.buf.off:]
+
+	// Reset file entries list
+	r.fileEntries = r.fileEntries[:r.initialFileEntries]
+
+	// Reset statement program state
+	r.state = LineEntry{
+		Address:       0,
+		OpIndex:       0,
+		FileIndex:     1,
+		FileEntry:     nil,
+		Line:          1,
+		Column:        0,
+		IsStmt:        r.defaultIsStmt,
+		BasicBlock:    false,
+		PrologueEnd:   false,
+		EpilogueBegin: false,
+		ISA:           0,
+		Discriminator: 0,
+	}
+	r.updateFileEntry()
 }
