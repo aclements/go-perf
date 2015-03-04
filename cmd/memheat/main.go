@@ -151,7 +151,7 @@ func main() {
 	y := marginTop
 	// lastLine := -1
 	for i, stat := range stats {
-		if i != 0 && (stat.fn != stats[i-1].fn || stat.src.FileEntry.FileName != stats[i-1].src.FileEntry.FileName) {
+		if i != 0 && (stat.fn != stats[i-1].fn || stat.src.File.Name != stats[i-1].src.File.Name) {
 			y += fnGap
 			// lastLine = -1
 		}
@@ -207,7 +207,7 @@ func main() {
 		lOpts := TextOpts{Anchor: AnchorStart, Baseline: BaselineMiddle, FontSize: 10}
 		svg.Text(sourceLeft+ticks.tickLen, (top+bot)/2, lOpts, fmt.Sprintf("%d", first.src.Line))
 
-		svg.Text(sourceLeft+lineLabelWidth, (top+bot)/2, lOpts, getLine(first.src.FileEntry.FileName, first.src.Line))
+		svg.Text(sourceLeft+lineLabelWidth, (top+bot)/2, lOpts, getLine(first.src.File.Name, first.src.Line))
 	}
 	svg.SetStroke(color.Black)
 	svg.Stroke()
@@ -239,7 +239,7 @@ func main() {
 
 	// Label file name groups
 	for _, idxs := range sections(len(stats), func(i int) bool {
-		return stats[i].src.FileEntry.FileName != stats[i-1].src.FileEntry.FileName
+		return stats[i].src.File.Name != stats[i-1].src.File.Name
 	}) {
 		lOpts := TextOpts{Anchor: AnchorMiddle, Rotate: -90}
 		svg.SetFill(color.Gray{192})
@@ -247,7 +247,7 @@ func main() {
 		bot := stats[idxs[1]-1].yCoord + cellHeight
 		svg.Rect(groupX-groupWidth, top, groupWidth, bot-top).FillPreserve().Clip()
 		svg.SetFill(color.Black)
-		fileName := path.Base(stats[idxs[0]].src.FileEntry.FileName)
+		fileName := path.Base(stats[idxs[0]].src.File.Name)
 		svg.Text(groupX-5, (top+bot)/2, lOpts, fileName)
 		svg.ResetClip()
 	}
@@ -299,8 +299,8 @@ func (s lineStatSorter) Less(i, j int) bool {
 			// Unknown line info comes first
 			return li == nil
 		}
-		if li.FileEntry.FileName != lj.FileEntry.FileName {
-			return li.FileEntry.FileName < lj.FileEntry.FileName
+		if li.File.Name != lj.File.Name {
+			return li.File.Name < lj.File.Name
 		}
 		if li.Line != lj.Line {
 			return li.Line < lj.Line

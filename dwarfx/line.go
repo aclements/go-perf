@@ -34,7 +34,7 @@ type LineReader struct {
 	opcodeBase           int
 	opcodeLengths        []int
 	directories          []string
-	fileEntries          []*FileEntry
+	fileEntries          []*LineFile
 
 	programOffset dwarf.Offset // section offset of statement program
 	endOffset     dwarf.Offset // section offset of byte following program
@@ -62,7 +62,7 @@ type LineEntry struct {
 	OpIndex int
 
 	// The source file corresponding to these instructions.
-	FileEntry *FileEntry
+	File *LineFile
 
 	// The line number of the source code corresponding to these
 	// instructions.  Lines are numbered beginning at 1.  This may
@@ -124,12 +124,11 @@ type LineEntry struct {
 	EndSequence bool
 }
 
-// A FileEntry represents a source file referenced by a DWARF line
-// table entry.
-type FileEntry struct {
-	FileName string
-	Mtime    uint64 // Modification time, or 0 if unknown
-	Length   int    // File length, or 0 if unknown
+// A LineFile is a source file referenced by a DWARF line table entry.
+type LineFile struct {
+	Name   string
+	Mtime  uint64 // Modification time, or 0 if unknown
+	Length int    // File length, or 0 if unknown
 }
 
 type dwarf64Format struct{}
@@ -267,7 +266,7 @@ func (r *LineReader) readPrologue() error {
 
 	// Read file name list.  File numbering starts with 1, so
 	// leave the first entry nil.
-	r.fileEntries = make([]*FileEntry, 1)
+	r.fileEntries = make([]*LineFile, 1)
 	for {
 		if done, err := r.readFileEntry(); err != nil {
 			return err
@@ -302,17 +301,17 @@ func (r *LineReader) readFileEntry() (bool, error) {
 	mtime := r.buf.uint()
 	length := int(r.buf.uint())
 
-	r.fileEntries = append(r.fileEntries, &FileEntry{name, mtime, length})
+	r.fileEntries = append(r.fileEntries, &LineFile{name, mtime, length})
 	return false, nil
 }
 
-// updateFileEntry updates r.state.FileEntry after r.fileIndex has
+// updateFile updates r.state.File after r.fileIndex has
 // changed or r.fileEntries has changed.
-func (r *LineReader) updateFileEntry() {
+func (r *LineReader) updateFile() {
 	if r.fileIndex < len(r.fileEntries) {
-		r.state.FileEntry = r.fileEntries[r.fileIndex]
+		r.state.File = r.fileEntries[r.fileIndex]
 	} else {
-		r.state.FileEntry = nil
+		r.state.File = nil
 	}
 }
 
@@ -405,7 +404,7 @@ func (r *LineReader) step(entry *LineEntry) bool {
 				r.buf.err = DecodeError{"line", startOff, "malformed DW_LNE_define_file operation"}
 				return false
 			}
-			r.updateFileEntry()
+			r.updateFile()
 
 		case lneSetDiscriminator:
 			// [DWARF4 6.2.5.3]
@@ -430,7 +429,7 @@ func (r *LineReader) step(entry *LineEntry) bool {
 
 	case lnsSetFile:
 		r.fileIndex = int(r.buf.uint())
-		r.updateFileEntry()
+		r.updateFile()
 
 	case lnsSetColumn:
 		r.state.Column = int(r.buf.uint())
@@ -529,7 +528,7 @@ func (r *LineReader) resetState() {
 	r.state = LineEntry{
 		Address:       0,
 		OpIndex:       0,
-		FileEntry:     nil,
+		File:          nil,
 		Line:          1,
 		Column:        0,
 		IsStmt:        r.defaultIsStmt,
@@ -540,7 +539,7 @@ func (r *LineReader) resetState() {
 		Discriminator: 0,
 	}
 	r.fileIndex = 1
-	r.updateFileEntry()
+	r.updateFile()
 }
 
 // UnknownPC is the error returned by LineReader.ScanPC when the seek
