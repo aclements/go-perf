@@ -36,13 +36,14 @@ type LineReader struct {
 	directories          []string
 	fileEntries          []*FileEntry
 
-	endOffset     dwarf.Offset // section offset of byte following program
 	programOffset dwarf.Offset // section offset of statement program
+	endOffset     dwarf.Offset // section offset of byte following program
 
 	initialFileEntries int // initial length of fileEntries
 
 	// Current "statement machine" state
-	state LineEntry
+	state     LineEntry // public state
+	fileIndex int       // private state
 }
 
 // A LineEntry is a row in a DWARF line table.
@@ -59,12 +60,6 @@ type LineEntry struct {
 	// together form an operation pointer that can reference any
 	// individual operation with the instruction stream.
 	OpIndex int
-
-	// An index indicating the identity of the source file
-	// corresponding to these instructions.
-	//
-	// TODO: Make this private
-	FileIndex int
 
 	// The source file corresponding to these instructions.
 	FileEntry *FileEntry
@@ -311,11 +306,11 @@ func (r *LineReader) readFileEntry() (bool, error) {
 	return false, nil
 }
 
-// updateFileEntry updates r.state.FileEntry after r.state.FileIndex
-// has changed or r.fileEntries has changed.
+// updateFileEntry updates r.state.FileEntry after r.fileIndex has
+// changed or r.fileEntries has changed.
 func (r *LineReader) updateFileEntry() {
-	if r.state.FileIndex < len(r.fileEntries) {
-		r.state.FileEntry = r.fileEntries[r.state.FileIndex]
+	if r.fileIndex < len(r.fileEntries) {
+		r.state.FileEntry = r.fileEntries[r.fileIndex]
 	} else {
 		r.state.FileEntry = nil
 	}
@@ -434,7 +429,7 @@ func (r *LineReader) step(entry *LineEntry) bool {
 		r.state.Line += int(r.buf.int())
 
 	case lnsSetFile:
-		r.state.FileIndex = int(r.buf.uint())
+		r.fileIndex = int(r.buf.uint())
 		r.updateFileEntry()
 
 	case lnsSetColumn:
@@ -495,12 +490,13 @@ type LineReaderPos struct {
 	// Length of fileEntries
 	numFileEntries int
 	// Statement machine state at this offset
-	state LineEntry
+	state     LineEntry
+	fileIndex int
 }
 
 // Tell returns the current position in the line table.
 func (r *LineReader) Tell() LineReaderPos {
-	return LineReaderPos{r.buf.off, len(r.fileEntries), r.state}
+	return LineReaderPos{r.buf.off, len(r.fileEntries), r.state, r.fileIndex}
 }
 
 // Seek restores the line table reader to a position returned by Tell.
@@ -511,6 +507,7 @@ func (r *LineReader) Seek(pos LineReaderPos) {
 	r.buf.data = r.section[r.buf.off:r.endOffset]
 	r.fileEntries = r.fileEntries[:pos.numFileEntries]
 	r.state = pos.state
+	r.fileIndex = pos.fileIndex
 }
 
 // Reset repositions the line table reader at the beginning of the
@@ -532,7 +529,6 @@ func (r *LineReader) resetState() {
 	r.state = LineEntry{
 		Address:       0,
 		OpIndex:       0,
-		FileIndex:     1,
 		FileEntry:     nil,
 		Line:          1,
 		Column:        0,
@@ -543,11 +539,12 @@ func (r *LineReader) resetState() {
 		ISA:           0,
 		Discriminator: 0,
 	}
+	r.fileIndex = 1
 	r.updateFileEntry()
 }
 
-// UnknownPC is the error returned by ScanPC when the seek PC is not
-// covered by the line table.
+// UnknownPC is the error returned by LineReader.ScanPC when the seek
+// PC is not covered by any entry in the line table.
 var UnknownPC = errors.New("UnknownPC")
 
 // SeekPC sets *entry to the LineEntry that includes pc and positions
