@@ -37,6 +37,9 @@ func New(r io.ReaderAt) (*File, error) {
 
 	// See perf_session__read_header in tools/perf/util/header.c
 
+	// TODO: r isn't buffered, so this does TONS of itty bitty
+	// preads.
+
 	// Read header
 	//
 	// TODO: Support big endian
@@ -279,6 +282,18 @@ func (f *File) CmdLine() ([]string, error) {
 
 // TODO: featureEventDesc, featureCPUTopology, featureNUMATopology,
 // featurePMUMappings, featureGroupDesc
+
+// TODO: Records can be out of order (e.g., perf report -D puts them
+// in time order, but that doesn't match file order). See
+// process_finished_round in session.c for how to put them back in
+// order.
+//
+// process_finished_round uses a special flush event, which I've never
+// actually observed in a perf.data file, which suggests to me perf
+// report is reading the whole file into memory and sorting it. That
+// doesn't seem so hot. Instead, I could make one fast pass over the
+// file reading only event time stamps to gather monotonic ranges and
+// then re-read these on demand as sub-streams with merging.
 
 func (f *File) Records() *Records {
 	return &Records{f: f, sr: f.hdr.Data.sectionReader(f.r)}

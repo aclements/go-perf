@@ -360,6 +360,8 @@ func getMmapExtra(mmap *perfsession.Mmap) (extra *mmapExtra) {
 	defer elff.Close()
 
 	// Load DWARF
+	// TODO: Support build IDs and split DWARF (probably with help
+	// from perfsession)
 	dwarff, err := elff.DWARF()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error loading DWARF from %s: %s\n", mmap.Filename, err)
