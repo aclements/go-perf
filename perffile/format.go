@@ -462,7 +462,13 @@ type RecordSample struct {
 	// have one element.
 	SampleRead []SampleRead // if SampleFormatRead
 
-	Callchain []uint64 // if SampleFormatCallchain; TODO: PERF_CONTEXT_*
+	// Callchain gives the call stack of the sampled instruction,
+	// starting from the sampled instruction itself. The call
+	// chain may span several types of stacks (e.g., it may start
+	// in a kernel stack, then transition to a user stack). Before
+	// the first IP from each stack there will be a Callchain*
+	// constant indicating the stack type for the following IPs.
+	Callchain []uint64 // if SampleFormatCallchain
 
 	BranchStack []BranchRecord // if SampleFormatBranchStack
 
@@ -563,6 +569,19 @@ type BranchRecord struct {
 	From, To uint64
 	Flags    uint64 // TODO: Flags encoding
 }
+
+// Special markers used in RecordSample.Callchain to mark boundaries
+// between types of stacks.
+//
+// PERF_CONTEXT_* from include/uapi/linux/perf_event.h
+const (
+	CallchainHypervisor  = 0xffffffffffffffe0 // -32
+	CallchainKernel      = 0xffffffffffffff80 // -128
+	CallchainUser        = 0xfffffffffffffe00 // -512
+	CallchainGuest       = 0xfffffffffffff800 // -2048
+	CallchainGuestKernel = 0xfffffffffffff780 // -2176
+	CallchainGuestUser   = 0xfffffffffffff600 // -2560
+)
 
 // perf_sample_regs_abi from include/uapi/linux/perf_event.h
 type SampleRegsABI uint64
