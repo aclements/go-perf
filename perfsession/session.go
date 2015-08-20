@@ -12,7 +12,10 @@ type Session struct {
 }
 
 func New() *Session {
-	kernel := &PIDInfo{Comm: "[kernel]"}
+	kernel := &PIDInfo{
+		Comm:  "[kernel]",
+		Extra: make(ForkableExtra),
+	}
 	return &Session{
 		kernel: kernel,
 		pidInfo: map[int]*PIDInfo{
@@ -26,7 +29,10 @@ func (s *Session) Update(r perffile.Record) {
 	ensurePID := func(pid int) *PIDInfo {
 		pidInfo, ok := s.pidInfo[pid]
 		if !ok {
-			pidInfo = &PIDInfo{kernel: s.kernel}
+			pidInfo = &PIDInfo{
+				kernel: s.kernel,
+				Extra:  make(ForkableExtra),
+			}
 			s.pidInfo[pid] = pidInfo
 		}
 		return pidInfo
@@ -44,14 +50,14 @@ func (s *Session) Update(r perffile.Record) {
 
 	case *perffile.RecordFork:
 		if r.PID == r.TID {
-			s.pidInfo[r.PID] = ensurePID(r.PPID).fork()
+			s.pidInfo[r.PID] = ensurePID(r.PPID).fork(r.PID)
 		}
 		// Otherwise this is thread creation
 
 	case *perffile.RecordMmap:
 		info := ensurePID(r.PID)
 		info.munmap(r.Addr, r.Len)
-		info.maps = append(info.maps, &Mmap{nil, *r})
+		info.maps = append(info.maps, &Mmap{make(ForkableExtra), *r})
 
 	case *perffile.RecordSample:
 		// Sometimes (particularly early in sample files), we
@@ -72,12 +78,12 @@ type PIDInfo struct {
 	maps   []*Mmap
 }
 
-func (p *PIDInfo) fork() *PIDInfo {
+func (p *PIDInfo) fork(pid int) *PIDInfo {
 	maps := make([]*Mmap, len(p.maps))
 	for i, mmap := range p.maps {
-		maps[i] = mmap.fork()
+		maps[i] = mmap.fork(pid)
 	}
-	return &PIDInfo{forkExtra(p.Extra), p.Comm, p.kernel, maps}
+	return &PIDInfo{p.Extra.Fork(pid).(ForkableExtra), p.Comm, p.kernel, maps}
 }
 
 func (p *PIDInfo) munmap(addr, mlen uint64) {
@@ -146,17 +152,32 @@ type Mmap struct {
 	perffile.RecordMmap
 }
 
-func (m *Mmap) fork() *Mmap {
-	return &Mmap{forkExtra(m.Extra), m.RecordMmap}
+func (m *Mmap) fork(pid int) *Mmap {
+	return &Mmap{m.Extra.Fork(pid).(ForkableExtra), m.RecordMmap}
 }
 
-type ForkableExtra interface {
-	Fork() ForkableExtra
+type Forkable interface {
+	Fork(pid int) Forkable
 }
 
-func forkExtra(extra ForkableExtra) ForkableExtra {
-	if extra == nil {
-		return nil
+type ExtraKey *struct {
+	private struct{}
+	Name    string
+}
+
+func NewExtraKey(name string) ExtraKey {
+	return ExtraKey(&struct {
+		private struct{}
+		Name    string
+	}{Name: name})
+}
+
+type ForkableExtra map[ExtraKey]Forkable
+
+func (f ForkableExtra) Fork(pid int) Forkable {
+	f2 := make(ForkableExtra, len(f))
+	for k, v := range f {
+		f2[k] = v.Fork(pid)
 	}
-	return extra.Fork()
+	return f2
 }

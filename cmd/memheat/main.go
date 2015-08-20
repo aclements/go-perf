@@ -316,7 +316,7 @@ type mmapExtra struct {
 	linetab []*dwarf.LineEntry
 }
 
-func (m *mmapExtra) Fork() perfsession.ForkableExtra {
+func (m *mmapExtra) Fork(pid int) perfsession.Forkable {
 	return m
 }
 
@@ -344,9 +344,12 @@ func (m *mmapExtra) findIP(ip uint64) (fn string, line *dwarf.LineEntry) {
 	return
 }
 
+var mmapExtraKey = perfsession.NewExtraKey("mmapExtra")
+
 func getMmapExtra(mmap *perfsession.Mmap) (extra *mmapExtra) {
-	if mmap.Extra != nil {
-		return mmap.Extra.(*mmapExtra)
+	extra, ok := mmap.Extra[mmapExtraKey].(*mmapExtra)
+	if ok {
+		return extra
 	}
 
 	// Load ELF
@@ -354,7 +357,7 @@ func getMmapExtra(mmap *perfsession.Mmap) (extra *mmapExtra) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error loading ELF file %s: %s\n", mmap.Filename, err)
 		extra = &mmapExtra{}
-		mmap.Extra = extra
+		mmap.Extra[mmapExtraKey] = extra
 		return
 	}
 	defer elff.Close()
@@ -366,7 +369,7 @@ func getMmapExtra(mmap *perfsession.Mmap) (extra *mmapExtra) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error loading DWARF from %s: %s\n", mmap.Filename, err)
 		extra = &mmapExtra{}
-		mmap.Extra = extra
+		mmap.Extra[mmapExtraKey] = extra
 		return
 	}
 
@@ -374,7 +377,7 @@ func getMmapExtra(mmap *perfsession.Mmap) (extra *mmapExtra) {
 		dwarfFuncTable(dwarff),
 		dwarfLineTable(elff, dwarff),
 	}
-	mmap.Extra = extra
+	mmap.Extra[mmapExtraKey] = extra
 	return
 }
 
