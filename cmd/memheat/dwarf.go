@@ -7,10 +7,9 @@ package main
 import (
 	"debug/dwarf"
 	"debug/elf"
+	"io"
 	"log"
 	"sort"
-
-	"github.com/aclements/goperf/dwarfx"
 )
 
 type funcRange struct {
@@ -74,18 +73,8 @@ func (s funcRangeSorter) Less(i, j int) bool {
 	return s[i].lowpc < s[j].lowpc
 }
 
-func dwarfLineTable(elff *elf.File, dwarff *dwarf.Data) []*dwarfx.LineEntry {
-	s := elff.Section(".debug_line")
-	if s == nil {
-		return nil
-	}
-
-	lineData, err := s.Data()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	out := make([]*dwarfx.LineEntry, 0)
+func dwarfLineTable(elff *elf.File, dwarff *dwarf.Data) []*dwarf.LineEntry {
+	out := make([]*dwarf.LineEntry, 0)
 
 	// Iterate over compilation units
 	dr := dwarff.Reader()
@@ -101,7 +90,7 @@ func dwarfLineTable(elff *elf.File, dwarff *dwarf.Data) []*dwarfx.LineEntry {
 		}
 
 		// Decode CU's line table
-		lr, err := dwarfx.NewLineReader(ent, lineData)
+		lr, err := dwarff.LineReader(ent)
 		if err != nil {
 			log.Fatal(err)
 		} else if lr == nil {
@@ -109,10 +98,10 @@ func dwarfLineTable(elff *elf.File, dwarff *dwarf.Data) []*dwarfx.LineEntry {
 		}
 
 		for {
-			var lent dwarfx.LineEntry
+			var lent dwarf.LineEntry
 			err := lr.Next(&lent)
 			if err != nil {
-				if err == dwarfx.EndOfTable {
+				if err == io.EOF {
 					break
 				}
 				log.Fatal(err)

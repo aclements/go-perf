@@ -6,6 +6,7 @@ package main
 
 import (
 	"bufio"
+	"debug/dwarf"
 	"debug/elf"
 	"flag"
 	"fmt"
@@ -15,7 +16,6 @@ import (
 	"path"
 	"sort"
 
-	"github.com/aclements/goperf/dwarfx"
 	"github.com/aclements/goperf/perffile"
 	"github.com/aclements/goperf/perfsession"
 	"github.com/aclements/goperf/scale"
@@ -27,7 +27,7 @@ type lineStat struct {
 	weights     []uint64
 
 	fn  string
-	src *dwarfx.LineEntry
+	src *dwarf.LineEntry
 
 	yCoord    float64
 	histogram []int
@@ -313,14 +313,14 @@ func (s lineStatSorter) Less(i, j int) bool {
 
 type mmapExtra struct {
 	functab []funcRange
-	linetab []*dwarfx.LineEntry
+	linetab []*dwarf.LineEntry
 }
 
 func (m *mmapExtra) Fork() perfsession.ForkableExtra {
 	return m
 }
 
-func (m *mmapExtra) findIP(ip uint64) (fn string, line *dwarfx.LineEntry) {
+func (m *mmapExtra) findIP(ip uint64) (fn string, line *dwarf.LineEntry) {
 	if m.functab == nil || m.linetab == nil {
 		return "", nil
 	}
