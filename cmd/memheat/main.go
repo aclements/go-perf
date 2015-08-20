@@ -7,7 +7,6 @@ package main
 import (
 	"bufio"
 	"debug/dwarf"
-	"debug/elf"
 	"flag"
 	"fmt"
 	"image/color"
@@ -66,18 +65,16 @@ func main() {
 				break
 			}
 
-			extra := getMmapExtra(mmap)
-			if extra.linetab == nil {
-				break
-			}
-
 			line, ok := ipToInfo[r.IP]
 			if !ok {
-				fn, src := extra.findIP(r.IP)
+				var symb perfsession.Symbolic
+				if !perfsession.Symbolize(mmap, r.IP, &symb) {
+					break
+				}
 				line = &lineStat{
 					ip:  r.IP,
-					fn:  fn,
-					src: src,
+					fn:  symb.FuncName,
+					src: &symb.Line,
 				}
 				ipToInfo[r.IP] = line
 			}
@@ -309,76 +306,6 @@ func (s lineStatSorter) Less(i, j int) bool {
 
 	// Finally, sort by IP
 	return s.lines[i].ip < s.lines[j].ip
-}
-
-type mmapExtra struct {
-	functab []funcRange
-	linetab []*dwarf.LineEntry
-}
-
-func (m *mmapExtra) Fork(pid int) perfsession.Forkable {
-	return m
-}
-
-func (m *mmapExtra) findIP(ip uint64) (fn string, line *dwarf.LineEntry) {
-	if m.functab == nil || m.linetab == nil {
-		return "", nil
-	}
-
-	i := sort.Search(len(m.functab), func(i int) bool {
-		return ip < m.functab[i].highpc
-	})
-	if i < len(m.functab) && m.functab[i].lowpc <= ip && ip < m.functab[i].highpc {
-		fn = m.functab[i].name
-	}
-
-	i = sort.Search(len(m.linetab), func(i int) bool {
-		return ip < m.linetab[i].Address
-	})
-	if i != 0 && !m.linetab[i-1].EndSequence {
-		line = m.linetab[i-1]
-	} else {
-		fmt.Fprintf(os.Stderr, "failed to find line of IP %#x %d\n", ip, ip)
-	}
-
-	return
-}
-
-var mmapExtraKey = perfsession.NewExtraKey("mmapExtra")
-
-func getMmapExtra(mmap *perfsession.Mmap) (extra *mmapExtra) {
-	extra, ok := mmap.Extra[mmapExtraKey].(*mmapExtra)
-	if ok {
-		return extra
-	}
-
-	// Load ELF
-	elff, err := elf.Open(mmap.Filename)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading ELF file %s: %s\n", mmap.Filename, err)
-		extra = &mmapExtra{}
-		mmap.Extra[mmapExtraKey] = extra
-		return
-	}
-	defer elff.Close()
-
-	// Load DWARF
-	// TODO: Support build IDs and split DWARF (probably with help
-	// from perfsession)
-	dwarff, err := elff.DWARF()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading DWARF from %s: %s\n", mmap.Filename, err)
-		extra = &mmapExtra{}
-		mmap.Extra[mmapExtraKey] = extra
-		return
-	}
-
-	extra = &mmapExtra{
-		dwarfFuncTable(dwarff),
-		dwarfLineTable(elff, dwarff),
-	}
-	mmap.Extra[mmapExtraKey] = extra
-	return
 }
 
 func limitFuncs(stats []*lineStat, limit int) []*lineStat {
