@@ -297,6 +297,19 @@ func (f *File) CmdLine() ([]string, error) {
 // file reading only event time stamps to gather monotonic ranges and
 // then re-read these on demand as sub-streams with merging.
 
-func (f *File) Records() *Records {
+//go:generate stringer -type=RecordsOrder
+
+type RecordsOrder int
+
+const (
+	// RecordsFileOrder requests records in file order. This is
+	// efficient because it allows streaming the records directly
+	// from the file, but the records may not be in time-stamp or
+	// even causal order.
+	RecordsFileOrder RecordsOrder = iota
+)
+
+// Records returns an iterator over the records in the profile.
+func (f *File) Records(order RecordsOrder) *Records {
 	return &Records{f: f, sr: f.hdr.Data.sectionReader(f.r)}
 }

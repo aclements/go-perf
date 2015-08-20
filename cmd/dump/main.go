@@ -43,7 +43,7 @@ func main() {
 		fmt.Printf("cmdline: %v\n", cmdline)
 	}
 
-	rs := f.Records()
+	rs := f.Records(perffile.RecordsFileOrder)
 	for rs.Next() {
 		fmt.Printf("%v %+v\n", rs.Record.Type(), rs.Record)
 	}

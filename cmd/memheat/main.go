@@ -53,7 +53,7 @@ func main() {
 
 	// Collect samples by IP (TODO: by (comm, ip) or something)
 	ipToInfo := map[uint64]*lineStat{}
-	rs := f.Records()
+	rs := f.Records(perffile.RecordsFileOrder)
 	for rs.Next() {
 		r := rs.Record
 		s.Update(r)
