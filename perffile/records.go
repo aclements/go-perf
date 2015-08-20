@@ -22,7 +22,7 @@ import (
 //    if rs.Err() { ... }
 type Records struct {
 	f   *File
-	sr  *io.SectionReader
+	sr  *bufferedSectionReader // or *io.SectionReader
 	err error
 
 	// The current record.  Determine which type of record this is

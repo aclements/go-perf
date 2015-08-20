@@ -39,9 +39,6 @@ func New(r io.ReaderAt) (*File, error) {
 
 	// See perf_session__read_header in tools/perf/util/header.c
 
-	// TODO: r isn't buffered, so this does TONS of itty bitty
-	// preads.
-
 	// Read header
 	//
 	// TODO: Support big endian
@@ -311,5 +308,5 @@ const (
 
 // Records returns an iterator over the records in the profile.
 func (f *File) Records(order RecordsOrder) *Records {
-	return &Records{f: f, sr: f.hdr.Data.sectionReader(f.r)}
+	return &Records{f: f, sr: newBufferedSectionReader(f.hdr.Data.sectionReader(f.r))}
 }
