@@ -12,6 +12,8 @@ import (
 	"reflect"
 )
 
+// TODO: Type for file format errors.
+
 type File struct {
 	r      io.ReaderAt
 	closer io.Closer
@@ -48,7 +50,7 @@ func New(r io.ReaderAt) (*File, error) {
 		return nil, err
 	}
 	if string(file.hdr.Magic[:]) != "PERFILE2" {
-		return nil, fmt.Errorf("bad or unsupported file magic %+v", string(file.hdr.Magic[:]))
+		return nil, fmt.Errorf("bad or unsupported file magic %q", string(file.hdr.Magic[:]))
 	}
 	if file.hdr.Size != uint64(binary.Size(&file.hdr)) {
 		return nil, fmt.Errorf("bad header size %d", file.hdr.Size)
