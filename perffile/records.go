@@ -117,7 +117,7 @@ func (r *Records) Next() bool {
 		r.Record = r.parseFork(bd, &hdr, &common)
 
 	case RecordTypeSample:
-		r.Record = r.parseSample(bd, &hdr)
+		r.Record = r.parseSample(bd, &hdr, &common)
 
 	case recordTypeMmap2:
 		r.Record = r.parseMmap(bd, &hdr, &common, true)
@@ -257,8 +257,9 @@ func (r *Records) parseFork(bd *bufDecoder, hdr *recordHeader, common *RecordCom
 	return o
 }
 
-func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader) Record {
+func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
 	o := &r.recordSample
+	o.RecordCommon = *common
 
 	// Get sample EventAttr ID
 	if r.f.sampleIDOffset == -1 {
