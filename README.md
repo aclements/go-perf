@@ -9,6 +9,8 @@ Libraries
 Tools
 * cmd/dump is a simple tool that reads a perf.data file and prints its
   raw records.
-* cmd/memheat processes a perf.data file recorded by "perf mem record"
-  and produces an SVG of the memory latency distributions on every
-  instruction and source line.
+* cmd/memlat is an interactive web-based browser for memory latency
+  profiles recorded by "perf mem record".
+* cmd/memheat is a non-interactive viewer for memory latency profiles
+  recorded by "perf mem record". It produces an SVG of the memory
+  latency distributions on every instruction and source line.

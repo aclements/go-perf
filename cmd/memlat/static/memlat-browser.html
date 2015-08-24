@@ -1,0 +1,355 @@
+<!-- Copyright 2015 The Go Authors. All rights reserved.
+  -- Use of this source code is governed by a BSD-style
+  -- license that can be found in the LICENSE file.
+  -->
+
+<link rel="import"
+      href="bower_components/polymer/polymer.html">
+
+<link rel="import"
+      href="bower_components/iron-ajax/iron-ajax.html">
+<link rel="import"
+      href="bower_components/iron-icon/iron-icon.html">
+<link rel="import"
+      href="bower_components/iron-icons/iron-icons.html">
+
+<link rel="import"
+      href="bower_components/paper-card/paper-card.html">
+<link rel="import"
+      href="bower_components/paper-tabs/paper-tab.html">
+<link rel="import"
+      href="bower_components/paper-tabs/paper-tabs.html">
+
+<!-- TODO: Show histogram scale -->
+
+<!-- TODO: Deep linking -->
+
+<!-- TODO: Include text from source code -->
+
+<!-- TODO: UI for showing summaries by data source -->
+
+<!-- TODO: Show profile summary (host name, etc) on the side -->
+
+<dom-module id="memlat-browser">
+  <!-- Top-level memory latency browser. -->
+
+  <template>
+    <memlat-query-filter filters="{{filters}}"></memlat-query-filter>
+    <memlat-query-groupby filters="{{filters}}" on-select="_addFilter"></memlat-query-groupby>
+  </template>
+
+  <script>
+    Polymer({
+      is: "memlat-browser",
+      properties: {
+        filters: {type: Array, value: []},
+      },
+      _addFilter: function(ev) {
+        this.push('filters', ev.detail);
+      },
+    });
+  </script>
+
+</dom-module>
+
+<dom-module id="memlat-query-filter">
+  <!-- UI for active query filter and removing filters. -->
+
+  <style is="custom-style">
+    :host { 
+      display: block;
+      margin-top: 16px;
+      margin-bottom: 16px;
+    }
+
+    .container, .filter {
+      padding: 16px;
+      display: inline-block;
+    }
+
+    .filter {
+      border-left: 1px solid #ccc;
+    }
+
+    iron-icon {
+      margin-left: 6px;
+      --iron-icon-width: 16px;
+      --iron-icon-height: 16px;
+      fill: #ccc;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    iron-icon:hover {
+      fill: #000;
+    }
+  </style>
+
+  <template>
+    <paper-card class="layout center" style="width: 1000px">
+      <div class="container">
+        Focus
+      </div>
+      <!-- TODO: Better separators -->
+      <template is="dom-if" if="{{!filters.length}}">
+        <div class="filter">
+          <span style="font-weight:bold">All</span>
+        </div>
+      </template>
+      <template is="dom-repeat" items="{{filters}}">
+        <div class="filter">
+          <span>{{item.label}}</span>
+          <iron-icon icon="icons:cancel" on-click="_removeFilter"></iron-icon>
+        </div>
+      </template>
+    </paper-card>
+  </template>
+
+  <script>
+    Polymer({
+      is: "memlat-query-filter",
+      properties: {
+        filters: {type: Array, value: []},
+      },
+      _removeFilter: function(ev) {
+        console.log('_removeFilter', ev.model);
+        this.splice('filters', ev.model.index, 1);
+      },
+    });
+  </script>
+
+</dom-module>
+
+<dom-module id="memlat-query-groupby">
+  <!-- UI for selecting groupBy and displaying grouped histograms. -->
+
+  <style is="custom-style">
+    :host { 
+      display: block;
+      margin-top: 16px;
+      margin-bottom: 16px;
+    }
+
+    paper-tabs, paper-toolbar {
+      background-color: #00bcd4;
+      color: #fff;
+      box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    paper-tab {
+      /* Left-align tab bar */
+      flex: none;
+    }
+
+    .container {
+      padding: 16px;
+    }
+  </style>
+
+  <template>
+    <paper-card class="layout center" style="width: 1000px">
+      <paper-tabs id="tabs" selected="{{groupBy}}" attr-for-selected="name" noink>
+        <paper-tab name="pid" hidden="{{!_legal.pid}}">By process</paper-tab>
+        <paper-tab name="funcName" hidden="{{!_legal.funcName}}">By function</paper-tab>
+        <paper-tab name="line" hidden="{{!_legal.line}}">By source line</paper-tab>
+        <paper-tab name="address" hidden="{{!_legal.address}}">By address</paper-tab>
+      </paper-tabs>
+      <div class="container">
+        <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}"></memlat-query-groupby>
+      </div>
+    </paper-card>
+  </template>
+
+  <script>
+    // TODO: Use dynamically-constructed pages for tab content so we can
+    // keep them around.
+    Polymer({
+      is: "memlat-query-groupby",
+      properties: {
+        groupBy: {type: String, value: 'pid'},
+        filters: Array,
+        _filter: {type: Object, computed: '_getFilter(filters.*)'},
+        _legal: {type: Object, computed: '_getLegal(_filter)', observer:'_legalChanged'},
+      },
+      ready: function() {
+        this.$.tabs.notifyResize();
+      },
+      _getFilter: function(changeRecord) {
+        var filters = changeRecord.base;
+console.log('combining filters', filters);
+        // Combine filters.
+        var cfilter = {};
+        for (var i = 0; i < filters.length; i++)
+          for (var prop in filters[i].filter)
+            if (filters[i].filter.hasOwnProperty(prop))
+              cfilter[prop] = filters[i].filter[prop];
+console.log(cfilter);
+        return cfilter;
+      },
+      _getLegal: function(filter) {
+        // Return the currently legal groupBys.
+        return {pid: !filter.pid, funcName: !filter.funcName, line: !filter.line, address: filter.pid && !filter.address};
+      },
+      _legalChanged: function(newLegal) {
+        // Compute the best legal groupBy.
+        if (!newLegal[this.groupBy]) {
+          var order = ['pid', 'funcName', 'line', 'address'];
+          var best;
+          for (var i = 0; i < order.length && !best; i++)
+            if (newLegal[order[i]])
+              best = order[i];
+          this.groupBy = best || 'all';
+        }
+
+        // Force a resize of the tabs since it doesn't detect that
+        // the set of tabs changed.
+        this.$.tabs.notifyResize();
+      },
+    });
+  </script>
+
+</dom-module>
+
+<dom-module id="memlat-query-table">
+  <!-- UI for displaying a table of latency histograms. -->
+
+  <style>
+    table {
+      table-layout: fixed;
+      width: 100%;
+    }
+    td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    tr:hover {
+      background: #eee;
+    }
+  </style>
+
+  <template>
+    <iron-ajax auto url="h" params="{{_getQueryParams(filter, groupBy)}}" last-response="{{_reply}}"></iron-ajax>
+    <table cellspacing="0" cellpadding="2px">
+      <tbody>
+        <template is="dom-repeat" items="{{_reply.Histograms}}">
+          <tr on-click="_rowClicked">
+            <td>{{_label(item)}}</td>
+            <td width="600px"><memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </template>
+
+  <script>
+    // TODO: Make it possible to increase the query limit.
+    Polymer({
+      is: "memlat-query-table",
+      properties: {
+        groupBy: String,
+        filter: Object,
+        _reply: Object,
+      },
+      _getQueryParams: function(filter, groupBy) {
+        var params = {groupBy: groupBy, limit: 100};
+        Object.keys(filter).forEach(function(key) {
+          params[key] = filter[key];
+        });
+        console.log('query params', params);
+        return params;
+      },
+      _label: function(hist) {
+        function trimFile(path) {
+          var parts = path.split('/');
+          if (parts.length <= 2)
+            return path;
+          return '.../' + parts[parts.length-2] + '/' + parts[parts.length-1];
+        }
+        if (hist.pid && hist.comm)
+          return hist.pid + ' (' + hist.comm + ')';
+        if (hist.pid)
+          return '' + hist.pid;
+        if (hist.funcName)
+          return hist.funcName;
+        if (hist.fileName && hist.line)
+          return trimFile(hist.fileName) + ':' + hist.line;
+        if (hist.fileName)
+          return trimFile(hist.fileName);
+        if (hist.address)
+          return '0x' + hist.address.toString(16);
+        return '[all]';
+      },
+      _rowClicked: function(ev) {
+        var hist = ev.model.get('item');
+
+        // Create the filter from hist's properties.
+        var filter = {}, anyProps = false;
+        var fprops = ['pid', 'funcName', 'fileName', 'line', 'address'];
+        for (var i = 0; i < fprops.length; i++) {
+          if (hist.hasOwnProperty(fprops[i])) {
+            filter[fprops[i]] = hist[fprops[i]];
+            anyProps = true;
+          }
+        }
+        // If this is an [all] result, there isn't anything to filter on.
+        if (!anyProps)
+          return;
+
+        this.fire('select', {'label': this._label(hist), 'filter': filter});
+      },
+    });
+  </script>
+
+</dom-module>
+
+<dom-module id="memlat-heat-map">
+  <!-- UI for displaying a single latency histogram as a heat map. -->
+
+  <template>
+    <canvas id="heatmap" height="10"></canvas>
+  </template>
+
+  <script>
+    Polymer({
+      is: "memlat-heat-map",
+      properties: {
+        bins: Array,
+        maxVal: Number,
+      },
+      observers: [
+        '_binsChanged(bins, maxVal)',
+      ],
+      _color: function(v) {
+        var pal = [[255,255,255],[255,255,204],[255,237,160],[254,217,118],[254,178,76],[253,141,60],[252,78,42],[227,26,28],[189,0,38],[128,0,38]];
+        v *= pal.length-1;
+        if (v >= pal.length-1)
+          return pal[pal.length-1];
+        if (v <= 0)
+          return pal[0];
+        var p1 = pal[Math.floor(v)], p2 = pal[Math.floor(v)+1];
+        var x = v - Math.floor(v);
+        return [p1[0]*(1-x)+p2[0]*x, p1[1]*(1-x)+p2[1]*x, p1[2]*(1-x)+p2[2]*x];
+      },
+      _rgba: function(rgb, a) {
+        return 'rgba('+Math.floor(rgb[0])+','+Math.floor(rgb[1])+','+Math.floor(rgb[2])+','+a+')';
+      },
+      _binsChanged: function(bins, maxVal) {
+        // TODO: Janky for big lists. Maybe iron-list? Even just sizing
+        // the canvas is slow. Works fine with default query limit.
+        var size = 10;
+        var canvas = this.$.heatmap;
+        canvas.width = bins.length * size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        for (var i = 0; i < bins.length; i++) { //>
+          var val = Math.pow(bins[i] / maxVal, 0.5);
+          ctx.fillStyle = this._rgba(this._color(val), Math.min(1, val*5));
+          ctx.fillRect(i*size, 0, size, size);
+        }
+      },
+    });
+  </script>
+
+</dom-module>
