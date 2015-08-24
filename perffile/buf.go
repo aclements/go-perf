@@ -25,13 +25,11 @@ type bufferedSectionReader struct {
 
 func newBufferedSectionReader(rd *io.SectionReader) *bufferedSectionReader {
 	pos, err := rd.Seek(0, 1)
-	if err != nil {
-		panic(err)
-	}
 	return &bufferedSectionReader{
 		buf: make([]byte, 16<<10),
 		rd:  rd,
 		pos: pos,
+		err: err,
 	}
 }
 
@@ -44,10 +42,16 @@ func (b *bufferedSectionReader) readErr() error {
 }
 
 func (b *bufferedSectionReader) Seek(offset int64, whence int) (int64, error) {
-	if offset != 0 || whence != 1 {
-		panic("unimplemented seek")
+	if whence == 0 && offset == b.pos || whence == 1 && offset == 0 {
+		return b.pos, nil
 	}
-	return b.pos, nil
+
+	var err error
+	b.pos, err = b.rd.Seek(offset, whence)
+	if err == nil {
+		b.r, b.w = 0, 0
+	}
+	return b.pos, err
 }
 
 func (b *bufferedSectionReader) Read(p []byte) (n int, err error) {

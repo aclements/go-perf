@@ -330,6 +330,7 @@ const (
 
 type Record interface {
 	Type() RecordType
+	Common() *RecordCommon
 }
 
 // RecordCommon stores fields that are common to all record types, as
@@ -354,6 +355,10 @@ type RecordCommon struct {
 	ID       attrID // if SampleFormatID or SampleFormatIdentifier
 	StreamID uint64 // if SampleFormatStreamID
 	CPU, Res uint32 // if SampleFormatCPU
+}
+
+func (r *RecordCommon) Common() *RecordCommon {
+	return r
 }
 
 // Placeholder for unknown or unimplemented record types

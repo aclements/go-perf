@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"sort"
 )
 
 // TODO: Type for file format errors.
@@ -282,18 +283,6 @@ func (f *File) CmdLine() ([]string, error) {
 // TODO: featureEventDesc, featureCPUTopology, featureNUMATopology,
 // featurePMUMappings, featureGroupDesc
 
-// TODO: Records can be out of order (e.g., perf report -D puts them
-// in time order, but that doesn't match file order). See
-// process_finished_round in session.c for how to put them back in
-// order.
-//
-// process_finished_round uses a special flush event, which I've never
-// actually observed in a perf.data file, which suggests to me perf
-// report is reading the whole file into memory and sorting it. That
-// doesn't seem so hot. Instead, I could make one fast pass over the
-// file reading only event time stamps to gather monotonic ranges and
-// then re-read these on demand as sub-streams with merging.
-
 //go:generate stringer -type=RecordsOrder
 
 type RecordsOrder int
@@ -304,9 +293,73 @@ const (
 	// from the file, but the records may not be in time-stamp or
 	// even causal order.
 	RecordsFileOrder RecordsOrder = iota
+
+	// RecordsCausalOrder requests records in causal order. This
+	// is weakly time-ordered: any two records will be in
+	// time-stamp order *unless* those records are both
+	// RecordSamples. This is potentially more efficient than
+	// RecordsTimeOrder, though currently the implementation does
+	// not distinguish.
+	RecordsCausalOrder
+
+	// RecordsTimeOrder requests records in time-stamp order.
+	RecordsTimeOrder
 )
 
 // Records returns an iterator over the records in the profile.
 func (f *File) Records(order RecordsOrder) *Records {
+	if order == RecordsCausalOrder || order == RecordsTimeOrder {
+		// Sort the records by making two passes: first record
+		// the offsets and time-stamps of all records, then
+		// sort this by time-stamp and re-read in the new
+		// offset order.
+		//
+		// See process_finished_round in session.c for how
+		// perf does this. process_finished_round uses a
+		// special flush event; however, I've never actually
+		// observed in a perf.data file, so I think perf may
+		// be reading and sorting the whole file looking for a
+		// flush.
+
+		// TODO: Optimize the first pass to decode only the
+		// record length and time-stamp.
+
+		// TODO: Optimize IO on the second pass by keeping
+		// track of the non-monotonic boundaries and
+		// performing separately buffered reads of each
+		// sub-stream.
+
+		rs := f.Records(RecordsFileOrder)
+		pos, ts := make([]int64, 0), make([]uint64, 0)
+		for rs.Next() {
+			c := rs.Record.Common()
+			pos = append(pos, c.Offset)
+			ts = append(ts, c.Time)
+		}
+		if rs.Err() != nil {
+			return &Records{err: rs.Err()}
+		}
+		sort.Stable(&timeSorter{pos, ts})
+		return &Records{f: f, sr: newBufferedSectionReader(f.hdr.Data.sectionReader(f.r)), order: pos}
+	}
+
 	return &Records{f: f, sr: newBufferedSectionReader(f.hdr.Data.sectionReader(f.r))}
+}
+
+type timeSorter struct {
+	pos []int64
+	ts  []uint64
+}
+
+func (s *timeSorter) Len() int {
+	return len(s.pos)
+}
+
+func (s *timeSorter) Less(i, j int) bool {
+	return s.ts[i] < s.ts[j]
+}
+
+func (s *timeSorter) Swap(i, j int) {
+	s.pos[i], s.pos[j] = s.pos[j], s.pos[i]
+	s.ts[i], s.ts[j] = s.ts[j], s.ts[i]
 }

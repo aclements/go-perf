@@ -16,6 +16,7 @@ import (
 //    rs := file.Records()
 //    for rs.Next() {
 //      switch r := rs.Record.(type) {
+//      case *perffile.RecordSample:
 //        ...
 //      }
 //    }
@@ -24,6 +25,11 @@ type Records struct {
 	f   *File
 	sr  *bufferedSectionReader // or *io.SectionReader
 	err error
+
+	// order specifies the seek order to read records in. If nil,
+	// records are read in file order until EOF. If non-nil,
+	// records are read in this order.
+	order []int64
 
 	// The current record.  Determine which type of record this is
 	// using a type switch.
@@ -56,6 +62,18 @@ func (r *Records) Next() bool {
 	// See perf_evsel__parse_sample
 	if r.err != nil {
 		return false
+	}
+
+	if r.order != nil {
+		if len(r.order) == 0 {
+			return false
+		}
+		pos := r.order[0]
+		r.order = r.order[1:]
+		_, r.err = r.sr.Seek(pos-int64(r.f.hdr.Data.Offset), 0)
+		if r.err != nil {
+			return false
+		}
 	}
 
 	var common RecordCommon
