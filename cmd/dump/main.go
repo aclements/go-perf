@@ -15,10 +15,12 @@ import (
 
 func main() {
 	var (
-		flagInput = flag.String("i", "perf.data", "input perf.data file")
+		flagInput = flag.String("i", "perf.data", "input perf.data `file`")
+		flagOrder = flag.String("order", "time", "sort `order`; one of: file, time, causal")
 	)
 	flag.Parse()
-	if flag.NArg() > 0 {
+	order, ok := parseOrder(*flagOrder)
+	if flag.NArg() > 0 || !ok {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -43,11 +45,23 @@ func main() {
 		fmt.Printf("cmdline: %v\n", cmdline)
 	}
 
-	rs := f.Records(perffile.RecordsFileOrder)
+	rs := f.Records(order)
 	for rs.Next() {
 		fmt.Printf("%v %+v\n", rs.Record.Type(), rs.Record)
 	}
 	if err := rs.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func parseOrder(order string) (perffile.RecordsOrder, bool) {
+	switch order {
+	case "file":
+		return perffile.RecordsFileOrder, true
+	case "time":
+		return perffile.RecordsTimeOrder, true
+	case "causal":
+		return perffile.RecordsCausalOrder, true
+	}
+	return 0, false
 }
