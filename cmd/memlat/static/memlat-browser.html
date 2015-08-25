@@ -60,9 +60,15 @@
       margin-bottom: 16px;
     }
 
-    .container, .filter {
+    .title, .filter {
       padding: 16px;
       display: inline-block;
+    }
+
+    .title {
+      background-color: #00bcd4;
+      color: #fff;
+      font-weight: 500;
     }
 
     .filter {
@@ -85,21 +91,23 @@
 
   <template>
     <paper-card class="layout center" style="width: 1000px">
-      <div class="container">
-        Focus
-      </div>
       <!-- TODO: Better separators -->
-      <template is="dom-if" if="{{!filters.length}}">
-        <div class="filter">
-          <span style="font-weight:bold">All</span>
+      <div style="display: flex">
+        <div class="title">
+          Focus
         </div>
-      </template>
-      <template is="dom-repeat" items="{{filters}}">
-        <div class="filter">
-          <span>{{item.label}}</span>
-          <iron-icon icon="icons:cancel" on-click="_removeFilter"></iron-icon>
-        </div>
-      </template>
+        <template is="dom-if" if="{{!filters.length}}">
+          <div class="filter">
+            <span style="font-weight:bold">All</span>
+          </div>
+        </template>
+        <template is="dom-repeat" items="{{filters}}">
+          <div class="filter">
+            <span>{{item.label}}</span>
+            <iron-icon icon="icons:cancel" on-click="_removeFilter"></iron-icon>
+          </div>
+        </template>
+      </div>
     </paper-card>
   </template>
 
