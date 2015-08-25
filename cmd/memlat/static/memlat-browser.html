@@ -60,7 +60,7 @@
       margin-bottom: 16px;
     }
 
-    .title, .filter {
+    .title, .filter, .all {
       padding: 16px;
       display: inline-block;
     }
@@ -73,6 +73,12 @@
 
     .filter {
       border-left: 1px solid #ccc;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter:hover {
+      background: #eee;
     }
 
     iron-icon {
@@ -81,10 +87,9 @@
       --iron-icon-height: 16px;
       fill: #ccc;
       transition: all 0.2s;
-      cursor: pointer;
     }
 
-    iron-icon:hover {
+    .filter:hover iron-icon {
       fill: #000;
     }
   </style>
@@ -94,17 +99,17 @@
       <!-- TODO: Better separators -->
       <div style="display: flex">
         <div class="title">
-          Focus
+          Filter
         </div>
         <template is="dom-if" if="{{!filters.length}}">
-          <div class="filter">
+          <div class="all">
             <span style="font-weight:bold">All</span>
           </div>
         </template>
         <template is="dom-repeat" items="{{filters}}">
-          <div class="filter">
+          <div class="filter" on-click="_removeFilter">
             <span>{{item.label}}</span>
-            <iron-icon icon="icons:cancel" on-click="_removeFilter"></iron-icon>
+            <iron-icon icon="icons:cancel"></iron-icon>
           </div>
         </template>
       </div>
