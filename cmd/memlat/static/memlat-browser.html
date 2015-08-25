@@ -387,7 +387,10 @@ console.log(cfilter);
         <template is="dom-repeat" items="{{_reply.Histograms}}">
           <tr on-click="_rowClicked">
             <td>{{_label(item)}}</td>
-            <td><memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
+            <td>
+              <template is="dom-if" if="{{item.Bins}}">
+                <memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
+              </template>
           </tr>
         </template>
       </tbody>

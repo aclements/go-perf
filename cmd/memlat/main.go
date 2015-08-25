@@ -211,7 +211,7 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				hist = newHist()
 				hist.FileName = fileName
 				hist.Line = line
-				// TODO: Omit bins
+				hist.Bins = nil
 			}
 			hist.Text = lines[line-minLine]
 		}
@@ -249,7 +249,7 @@ const latencyHistogramBins = 60
 
 type latencyHistogram struct {
 	scale  scale.Quantitative
-	Bins   []int
+	Bins   []int `json:",omitempty"`
 	weight int
 
 	PID      int    `json:"pid,omitempty"`
