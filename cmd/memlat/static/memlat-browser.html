@@ -20,8 +20,6 @@
 <link rel="import"
       href="bower_components/paper-tabs/paper-tabs.html">
 
-<!-- TODO: Show histogram scale -->
-
 <!-- TODO: Deep linking -->
 
 <!-- TODO: Include text from source code -->
@@ -218,25 +216,39 @@ console.log(cfilter);
       table-layout: fixed;
       width: 100%;
     }
-    td {
+    tbody > tr > td {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       cursor: pointer;
     }
-    tr:hover {
+    tbody > tr:hover {
       background: #eee;
+    }
+    tr > td:nth-child(2) {
+      text-align: center;
     }
   </style>
 
   <template>
     <iron-ajax auto url="h" params="{{_getQueryParams(filter, groupBy)}}" last-response="{{_reply}}"></iron-ajax>
     <table cellspacing="0" cellpadding="2px">
+      <colgroup>
+        <col></col><col width="620px"></col>
+      </colgroup>
+      <thead>
+        <tr>
+          <td></td><td style="font-weight: bold">Memory access cycles distribution</td>
+        </tr>
+        <tr>
+          <td></td><td><memlat-scale ticks="{{_reply.MajorTicksX}}" tick-labels="{{_reply.MajorTicks}}" minor-ticks="{{_reply.MinorTicksX}}"></memlat-scale></td>
+        </tr>
+      </thead>
       <tbody>
         <template is="dom-repeat" items="{{_reply.Histograms}}">
           <tr on-click="_rowClicked">
             <td>{{_label(item)}}</td>
-            <td width="600px"><memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
+            <td><memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
           </tr>
         </template>
       </tbody>
@@ -350,6 +362,80 @@ console.log(cfilter);
         }
       },
     });
+  </script>
+
+</dom-module>
+
+<dom-module id="memlat-scale">
+  <!-- Graph scale. -->
+
+  <style is="custom-style">
+    .tick-label {
+      position: absolute;
+      transform: translateX(-50%);
+      top: 0px;
+    }
+    canvas {
+      margin-top: 1.4em;
+    }
+  </style>
+
+  <template>
+    <div style="position:relative; display:inline-block">
+      <template is="dom-repeat" items="{{_labels}}">
+        <div class="tick-label" style$="[[item.style]]">{{item.label}}</div>
+      </template>
+      <canvas id="scale" height="10"></canvas>
+    </div>
+  </template>
+
+  <script>
+    Polymer({
+      is: "memlat-scale",
+      properties: {
+        width: {type: Number, value: 600},
+        ticks: Array,
+        tickLabels: Array,
+        minorTicks: Array,
+        _labels: {type: Array, computed: '_getLabels(width, ticks, tickLabels)'},
+      },
+      observers: [
+        '_ticksChanged(width, ticks, tickLabels, minorTicks)',
+      ],
+      _getLabels: function(width, ticks, tickLabels) {
+        var labels = [];
+        for (var i = 0; i < ticks.length; i++) {
+          var val = tickLabels[i], unit = '';
+          if (val >= 1000) { val /= 1000; unit = 'k'; }
+          if (val >= 1000) { val /= 1000; unit = 'm'; }
+          if (val >= 1000) { val /= 1000; unit = 'g'; }
+          var label = val + unit;
+          labels.push({style: 'left:'+(width*ticks[i])+'px', label: label});
+        }
+        return labels;
+      },
+      _ticksChanged: function(width, ticks, tickLabels, minorTicks) {
+        var canvas = this.$.scale;
+        canvas.width = width;
+        var ctx = canvas.getContext('2d');
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(0,0,0)';
+        ctx.strokeWidth = '2px';
+        ticks.forEach(function(pos) {
+          ctx.moveTo(Math.round(pos*(width-2)+1), 0);
+          ctx.lineTo(Math.round(pos*(width-2)+1), 10);
+        });
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.strokeWidth = '1px';
+        ctx.beginPath();
+        minorTicks.forEach(function(pos) {
+          ctx.moveTo(Math.round(pos*(width-2)+1)+0.5, 5);
+          ctx.lineTo(Math.round(pos*(width-2)+1)+0.5, 10);
+        });
+        ctx.stroke();
+      },
+    })
   </script>
 
 </dom-module>
