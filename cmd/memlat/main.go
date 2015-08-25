@@ -77,12 +77,17 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	limit := atoi(qs.Get("limit"))
 
 	// Compute the scale for this histogram set.
+	const useLocalScale = false
 	var maxLatency uint32 = 1
-	h.db.filter(&f, func(p *proc, rec *record) {
-		if rec.latency > maxLatency {
-			maxLatency = rec.latency
-		}
-	})
+	if useLocalScale {
+		h.db.filter(&f, func(p *proc, rec *record) {
+			if rec.latency > maxLatency {
+				maxLatency = rec.latency
+			}
+		})
+	} else {
+		maxLatency = h.db.maxLatency
+	}
 	scale, err := scale.NewLog(1, float64(maxLatency), 10)
 	if err != nil {
 		log.Fatal(err)
