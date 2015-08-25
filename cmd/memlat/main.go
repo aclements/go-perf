@@ -39,6 +39,7 @@ func main() {
 	// Look at godoc's makestatic.go and -template argument.
 	mux.Handle("/", http.FileServer(http.Dir(*flagDocRoot)))
 	mux.Handle("/h", &heatMapHandler{db})
+	mux.Handle("/metadata", &metadataHandler{*flagInput, db.metadata})
 
 	if err := http.ListenAndServe(*flagHttp, mux); err != nil {
 		log.Fatal(err)
@@ -259,4 +260,17 @@ func (w weightSorter) Less(i, j int) bool {
 
 func (w weightSorter) Swap(i, j int) {
 	w[i], w[j] = w[j], w[i]
+}
+
+type metadataHandler struct {
+	Filename string
+	Metadata
+}
+
+func (h *metadataHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	err := json.NewEncoder(w).Encode(h)
+	if err != nil {
+		log.Print(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

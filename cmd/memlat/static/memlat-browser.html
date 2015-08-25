@@ -24,14 +24,21 @@
 
 <!-- TODO: UI for showing summaries by data source -->
 
-<!-- TODO: Show profile summary (host name, etc) on the side -->
+<!-- TODO: Animate adding/removing filter to make the change clearer -->
+
+<!-- TODO: Fix layout responsiveness -->
 
 <dom-module id="app-memlat-browser">
   <!-- Top-level memory latency browser. -->
 
   <template>
-    <memlat-query-filter filters="{{filters}}"></memlat-query-filter>
-    <memlat-query-groupby group-by="{{groupBy}}" filters="{{filters}}" on-select="_addFilter"></memlat-query-groupby>
+    <div style="display: flex; flex-wrap: wrap">
+      <memlat-profile-metadata></memlat-profile-metadata>
+      <div style="display: flex; flex-direction: column">
+        <memlat-query-filter filters="{{filters}}"></memlat-query-filter>
+        <memlat-query-groupby group-by="{{groupBy}}" filters="{{filters}}" on-select="_addFilter"></memlat-query-groupby>
+      </div>
+    </div>
   </template>
 
   <script>
@@ -111,14 +118,66 @@
 
 </dom-module>
 
+<dom-module id="memlat-profile-metadata">
+  <!-- UI card for showing profile metadata. -->
+
+  <style is="custom-style">
+    :host {
+      display: block;
+      margin: 16px;
+    }
+
+    paper-card {
+      display: inline-flex;
+    }
+
+    div {
+      margin: 16px;
+    }
+
+    .label {
+      font-weight: bold;
+    }
+  </style>
+
+  <template>
+    <iron-ajax auto url="metadata" last-response="{{_m}}"></iron-ajax>
+    <paper-card class="layout center" style="width: 300px">
+      <div>{{_m.Filename}}</div>
+      <template is="dom-repeat" items="{{_kvPretty(_m)}}">
+        <div><span class="label">{{item.k}}</span> <span>{{item.v}}</span></div>
+      </template>
+    </paper-card>
+  </template>
+
+  <script>
+    Polymer({
+      is: "memlat-profile-metadata",
+      properties: {
+        _m: Object,
+      },
+      _kvPretty: function(obj) {
+        return Object.keys(obj).map(function(key) {
+          if (key === 'Filename')
+            return;
+          var val = obj[key];
+          if (Array.isArray(val))
+            val = val.join(' ');
+          return {k: key + ':', v: val};
+        });
+      },
+    });
+  </script>
+
+</dom-module>
+
 <dom-module id="memlat-query-filter">
   <!-- UI for active query filter and removing filters. -->
 
   <style is="custom-style">
-    :host { 
+    :host {
       display: block;
-      margin-top: 16px;
-      margin-bottom: 16px;
+      margin: 16px;
     }
 
     .title, .filter, .all {
@@ -198,8 +257,7 @@
   <style is="custom-style">
     :host { 
       display: block;
-      margin-top: 16px;
-      margin-bottom: 16px;
+      margin: 16px;
     }
 
     paper-tabs, paper-toolbar {

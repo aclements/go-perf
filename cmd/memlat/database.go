@@ -28,6 +28,9 @@ type database struct {
 	// maxLatency is the maximum latency value across all records
 	// in this database.
 	maxLatency uint32
+
+	// metadata records metadata fields from the profile.
+	metadata Metadata
 }
 
 type proc struct {
@@ -53,6 +56,13 @@ type ipInfo struct {
 // dataSrcID is a small integer identifying a perffile.DataSrc.
 type dataSrcID uint32
 
+type Metadata struct {
+	Hostname string
+	Arch     string
+	CPUDesc  string   `json:"CPU"`
+	CmdLine  []string `json:"Command line"`
+}
+
 // parsePerf parses a perf.data profile into a database.
 func parsePerf(fileName string) *database {
 	f, err := perffile.Open(fileName)
@@ -64,6 +74,11 @@ func parsePerf(fileName string) *database {
 	db := &database{
 		procs: make(map[int]*proc),
 	}
+	db.metadata.Hostname, _ = f.Hostname()
+	db.metadata.Arch, _ = f.Arch()
+	db.metadata.CPUDesc, _ = f.CPUDesc()
+	db.metadata.CmdLine, _ = f.CmdLine()
+
 	dataSrc2ID := make(map[perffile.DataSrc]dataSrcID)
 	s := perfsession.New()
 
