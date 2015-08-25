@@ -1,4 +1,4 @@
-goperf is a collection of Go packages for parsing and making use of
+go-perf is a collection of Go packages for parsing and making use of
 Linux perf.data profiles.
 
 Libraries

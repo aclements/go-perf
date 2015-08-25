@@ -4,7 +4,7 @@
 
 package perfsession
 
-import "github.com/aclements/goperf/perffile"
+import "github.com/aclements/go-perf/perffile"
 
 type Session struct {
 	kernel  *PIDInfo

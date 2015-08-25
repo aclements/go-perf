@@ -1,7 +1,7 @@
 {
   "name": "memlat",
   "version": "0.0.0",
-  "homepage": "https://github.com/aclements/goperf",
+  "homepage": "https://github.com/aclements/go-perf",
   "authors": [
     "Austin Clements <(none)>"
   ],

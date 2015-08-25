@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/aclements/goperf/perffile"
+	"github.com/aclements/go-perf/perffile"
 )
 
 func main() {

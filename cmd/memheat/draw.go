@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"image/color"
 
-	"github.com/aclements/goperf/scale"
+	"github.com/aclements/go-perf/scale"
 )
 
 type TicksFormat struct {

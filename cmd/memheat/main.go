@@ -15,9 +15,9 @@ import (
 	"path"
 	"sort"
 
-	"github.com/aclements/goperf/perffile"
-	"github.com/aclements/goperf/perfsession"
-	"github.com/aclements/goperf/scale"
+	"github.com/aclements/go-perf/perffile"
+	"github.com/aclements/go-perf/perfsession"
+	"github.com/aclements/go-perf/scale"
 )
 
 type lineStat struct {
