@@ -20,30 +20,91 @@
 <link rel="import"
       href="bower_components/paper-tabs/paper-tabs.html">
 
-<!-- TODO: Deep linking -->
-
 <!-- TODO: Include text from source code -->
 
 <!-- TODO: UI for showing summaries by data source -->
 
 <!-- TODO: Show profile summary (host name, etc) on the side -->
 
-<dom-module id="memlat-browser">
+<dom-module id="app-memlat-browser">
   <!-- Top-level memory latency browser. -->
 
   <template>
     <memlat-query-filter filters="{{filters}}"></memlat-query-filter>
-    <memlat-query-groupby filters="{{filters}}" on-select="_addFilter"></memlat-query-groupby>
+    <memlat-query-groupby group-by="{{groupBy}}" filters="{{filters}}" on-select="_addFilter"></memlat-query-groupby>
   </template>
 
   <script>
     Polymer({
-      is: "memlat-browser",
+      is: "app-memlat-browser",
       properties: {
+        groupBy: {type: String, value: 'pid'},
         filters: {type: Array, value: []},
       },
+      observers: [
+        '_stateChanged(groupBy, filters.*)',
+      ],
       _addFilter: function(ev) {
         this.push('filters', ev.detail);
+      },
+
+      // Hash state management
+      //
+      // TODO: Try to abstract this out.
+      attached: function() {
+        window.addEventListener('hashchange', this._hashChanged.bind(this), false);
+        this._hashChanged();
+      },
+      _hashChanged: function() {
+        function parseQueryString(qs)
+        {
+            var query = {};
+            qs.split('&').forEach(function(kv) {
+                var parts = kv.split('=');
+                query[decodeURIComponent(parts[0])] =
+                    JSON.parse(decodeURIComponent(parts[1]));
+            })
+            return query;
+        }
+
+        var hash = window.location.hash;
+        if (hash.substr(0, 1) !== '#')
+          return;
+        var state = parseQueryString(hash.substr(1));
+        this.set('groupBy', state.groupBy);
+        this.set('filters', state.filters);
+        this._hashReady = true;
+      },
+      _stateChanged: function(groupBy, filtersCR) {
+        if (!this._hashReady)
+          return;
+        function printQueryString(obj) {
+            var kvs = [];
+            for (var k in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, k))
+                    kvs.push(encodeFragment(k) + '=' +
+                             encodeFragment(JSON.stringify(obj[k])));
+            }
+            return kvs.join('&');
+        }
+        // encodeFragment is like encodeURIComponent but explicitly
+        // reintroduces some "unsafe" characters that are in practice safe
+        // in fragments.  We use this because otherwise JSON becomes
+        // completely impenetrable in URIs.
+        function encodeFragment(s) {
+            s = encodeURIComponent(s);
+            return s.replace(/%22/gi, '"').replace(/%2C/gi, ','). //"
+                replace(/%3A/gi, ':').
+                replace(/%5B/gi, '[').replace(/%5D/gi, ']').
+                replace(/%7B/gi, '{').replace(/%7D/gi, '}');
+        }
+        var nhash = '#' + printQueryString({groupBy:groupBy, filters:filtersCR.base});
+
+        // Don't push the same state on the history stack
+        if (window.location.hash === nhash)
+            return;
+
+        window.location.hash = nhash;
       },
     });
   </script>
@@ -177,7 +238,7 @@
     Polymer({
       is: "memlat-query-groupby",
       properties: {
-        groupBy: {type: String, value: 'pid'},
+        groupBy: {type: String, value: 'pid', notify: true},
         filters: Array,
         _filter: {type: Object, computed: '_getFilter(filters.*)'},
         _legal: {type: Object, computed: '_getLegal(_filter)', observer:'_legalChanged'},
