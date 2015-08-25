@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -142,7 +143,7 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			hist.update(r)
 		}
 
-	case "line":
+	case "annotation", "line":
 		groups := make(map[ipInfo]*latencyHistogram)
 		agg = func(p *proc, r *record) {
 			ipInfo := p.ipInfo[r.ip]
@@ -171,11 +172,52 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	h.db.filter(&f, agg)
 
-	// Sort histograms by weight.
-	sort.Sort(sort.Reverse(weightSorter(histograms)))
+	if groupBy != "annotation" {
+		// Sort histograms by weight.
+		sort.Sort(sort.Reverse(weightSorter(histograms)))
 
-	if limit != 0 && limit < len(histograms) {
-		histograms = histograms[:limit]
+		if limit != 0 && limit < len(histograms) {
+			histograms = histograms[:limit]
+		}
+	} else if len(histograms) != 0 {
+		// Find the min and max covered line.
+		fileName := histograms[0].FileName
+		minLine := histograms[0].Line
+		maxLine := minLine
+		haveLines := map[int]*latencyHistogram{}
+		for _, h := range histograms {
+			if h.FileName != fileName {
+				continue
+			}
+			if h.Line < minLine {
+				minLine = h.Line
+			}
+			if h.Line > maxLine {
+				maxLine = h.Line
+			}
+			haveLines[h.Line] = h
+		}
+
+		// Read source lines and create empty histograms for
+		// lines we missed.
+		lines, err := getLines(fileName, minLine, maxLine)
+		if err != nil {
+			log.Println(err)
+			// Keep going
+		}
+		for line := minLine; line <= maxLine; line++ {
+			hist := haveLines[line]
+			if hist == nil {
+				hist = newHist()
+				hist.FileName = fileName
+				hist.Line = line
+				// TODO: Omit bins
+			}
+			hist.Text = lines[line-minLine]
+		}
+
+		// Sort histograms by line number.
+		sort.Sort(lineSorter(histograms))
 	}
 
 	// Compute maximum bin size for bin scaling.
@@ -216,6 +258,7 @@ type latencyHistogram struct {
 	FileName string `json:"fileName,omitempty"`
 	Line     int    `json:"line,omitempty"`
 	Address  uint64 `json:"address,omitempty"`
+	Text     string `json:"text,omitempty"`
 }
 
 func newLatencyHistogram(scale scale.Quantitative) *latencyHistogram {
@@ -260,6 +303,47 @@ func (w weightSorter) Less(i, j int) bool {
 
 func (w weightSorter) Swap(i, j int) {
 	w[i], w[j] = w[j], w[i]
+}
+
+type lineSorter []*latencyHistogram
+
+func (s lineSorter) Len() int {
+	return len(s)
+}
+
+func (s lineSorter) Less(i, j int) bool {
+	return s[i].Line < s[j].Line
+}
+
+func (s lineSorter) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func getLines(path string, minLine, maxLine int) ([]string, error) {
+	lines := make([]string, maxLine-minLine+1)
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Skip to minLine.
+	scanner := bufio.NewScanner(file)
+	for i := 0; i < minLine && scanner.Scan(); i++ {
+		// Do nothing
+	}
+
+	for line := minLine; line <= maxLine && scanner.Err() == nil; line++ {
+		lines[line-minLine] = scanner.Text()
+		scanner.Scan()
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return lines, nil
+
 }
 
 type metadataHandler struct {
