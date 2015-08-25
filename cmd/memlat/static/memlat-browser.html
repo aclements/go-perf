@@ -58,7 +58,7 @@
       // Hash state management
       //
       // TODO: Try to abstract this out.
-      attached: function() {
+      ready: function() {
         window.addEventListener('hashchange', this._hashChanged.bind(this), false);
         this._hashChanged();
       },
@@ -75,8 +75,10 @@
         }
 
         var hash = window.location.hash;
-        if (hash.substr(0, 1) !== '#')
+        if (hash.substr(0, 1) !== '#') {
+          this._hashReady = true;
           return;
+        }
         var state = parseQueryString(hash.substr(1));
         this.set('groupBy', state.groupBy);
         this.set('filters', state.filters);
