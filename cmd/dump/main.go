@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 
 	"github.com/aclements/go-perf/perffile"
 )
@@ -33,16 +34,56 @@ func main() {
 
 	fmt.Printf("%+v\n", f)
 
-	if hostname, err := f.Hostname(); err != nil {
+	if buildIDs, err := f.BuildIDs(); err != nil {
 		log.Fatal(err)
-	} else if hostname != "" {
-		fmt.Printf("hostname: %s\n", hostname)
+	} else if buildIDs != nil {
+		fmt.Printf("build IDs:\n")
+		for _, bid := range buildIDs {
+			fmt.Printf("  %v\n", bid)
+		}
 	}
 
-	if cmdline, err := f.CmdLine(); err != nil {
-		log.Fatal(err)
-	} else if cmdline != nil {
-		fmt.Printf("cmdline: %v\n", cmdline)
+	nrCPUs := func() ([]int, error) {
+		online, avail, err := f.NrCPUs()
+		if online == 0 && avail == 0 {
+			return nil, err
+		}
+		return []int{online, avail}, err
+	}
+	cpuTopology := func() ([][]perffile.CPUSet, error) {
+		cores, threads, err := f.CPUTopology()
+		if cores == nil {
+			return nil, err
+		}
+		return [][]perffile.CPUSet{cores, threads}, err
+	}
+
+	for _, hdr := range []struct {
+		label string
+		fetch interface{}
+	}{
+		//{"build IDs", f.BuildIDs},
+		{"hostname", f.Hostname},
+		{"OS release", f.OSRelease},
+		{"version", f.Version},
+		{"arch", f.Arch},
+		{"nrcpus", nrCPUs},
+		{"CPU desc", f.CPUDesc},
+		{"CPUID", f.CPUID},
+		{"total memory", f.TotalMem},
+		{"cmdline", f.CmdLine},
+		{"CPU topology", cpuTopology},
+		{"NUMA topology", f.NUMATopology},
+		{"PMU mappings", f.PMUMappings},
+		{"groups", f.GroupDesc},
+	} {
+		res := reflect.ValueOf(hdr.fetch).Call(nil)
+		if !res[1].IsNil() {
+			log.Fatal(res[1].Interface())
+		}
+		if res[0].Interface() != reflect.Zero(res[0].Type()) {
+			fmt.Printf("%s: %v\n", hdr.label, res[0].Interface())
+		}
 	}
 
 	rs := f.Records(order)
