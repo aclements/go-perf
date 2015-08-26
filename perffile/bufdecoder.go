@@ -20,6 +20,12 @@ func (b *bufDecoder) bytes(x []byte) {
 	b.buf = b.buf[len(x):]
 }
 
+func (b *bufDecoder) u16() uint16 {
+	x := b.order.Uint16(b.buf)
+	b.buf = b.buf[2:]
+	return x
+}
+
 func (b *bufDecoder) u32() uint32 {
 	x := b.order.Uint32(b.buf)
 	b.buf = b.buf[4:]
@@ -78,4 +84,24 @@ func (b *bufDecoder) cstring() string {
 	x := string(b.buf)
 	b.buf = b.buf[:1]
 	return x
+}
+
+func (b *bufDecoder) lenString() string {
+	l := b.u32()
+	if l > uint32(len(b.buf)) {
+		// TODO: Error?
+		l = uint32(len(b.buf))
+	}
+	str := (&bufDecoder{b.buf[:l], nil}).cstring()
+	b.buf = b.buf[l:]
+	return str
+}
+
+func (b *bufDecoder) stringList() []string {
+	out := []string{}
+	count := b.u32()
+	for i := uint32(0); i < count; i++ {
+		out = append(out, b.lenString())
+	}
+	return out
 }
