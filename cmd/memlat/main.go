@@ -20,11 +20,17 @@ import (
 	"github.com/aclements/go-moremath/vec"
 )
 
+//go:generate go run makestatic.go
+
+// staticFiles is the static file tree baked in to the binary. This is
+// assigned by an init function if the static files are available.
+var staticFiles mapFS
+
 func main() {
 	var (
 		flagInput   = flag.String("i", "perf.data", "read memory latency profile from `file`")
 		flagHttp    = flag.String("http", ":8001", "serve HTTP on `address`")
-		flagDocRoot = flag.String("docroot", "./static", "alternate `path` to static web resources")
+		flagDocRoot = flag.String("docroot", "", "alternate `path` to static web resources")
 	)
 	flag.Parse()
 	if flag.NArg() > 0 {
@@ -36,9 +42,15 @@ func main() {
 	fmt.Fprintln(os.Stderr, "profile loaded")
 
 	mux := http.NewServeMux()
-	// TODO: Don't assume static/ is in the working directory.
-	// Look at godoc's makestatic.go and -template argument.
-	mux.Handle("/", http.FileServer(http.Dir(*flagDocRoot)))
+	if *flagDocRoot == "" && staticFiles == nil {
+		// No baked-in static file system.
+		*flagDocRoot = "static"
+	}
+	if *flagDocRoot == "" {
+		mux.Handle("/", http.FileServer(staticFiles))
+	} else {
+		mux.Handle("/", http.FileServer(http.Dir(*flagDocRoot)))
+	}
 	mux.Handle("/h", &heatMapHandler{db})
 	mux.Handle("/metadata", &metadataHandler{*flagInput, db.metadata})
 
