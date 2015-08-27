@@ -110,6 +110,8 @@ type funcRange struct {
 }
 
 func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
+	// TODO Use ELF symbol table if DWARF isn't available.
+
 	// Walk DWARF for functions
 	// TODO: Use .debug_pubnames (not supported by dwarf package)
 	r := dwarff.Reader()

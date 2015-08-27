@@ -38,6 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Fprintln(os.Stderr, "loading profile...")
 	db := parsePerf(*flagInput)
 	fmt.Fprintln(os.Stderr, "profile loaded")
 
@@ -54,6 +55,7 @@ func main() {
 	mux.Handle("/h", &heatMapHandler{db})
 	mux.Handle("/metadata", &metadataHandler{*flagInput, db.metadata})
 
+	fmt.Fprintf(os.Stderr, "serving on %s\n", *flagHttp)
 	if err := http.ListenAndServe(*flagHttp, mux); err != nil {
 		log.Fatal(err)
 	}
