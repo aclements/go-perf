@@ -80,7 +80,7 @@ func parsePerf(fileName string) *database {
 	db.metadata.CmdLine, _ = f.CmdLine()
 
 	dataSrc2ID := make(map[perffile.DataSrc]dataSrcID)
-	s := perfsession.New()
+	s := perfsession.New(f)
 
 	numSamples := 0
 	droppedMmaps := 0

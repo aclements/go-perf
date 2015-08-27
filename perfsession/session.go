@@ -10,10 +10,11 @@ type Session struct {
 	kernel  *PIDInfo
 	pidInfo map[int]*PIDInfo
 
+	File  *perffile.File
 	Extra map[ExtraKey]interface{}
 }
 
-func New() *Session {
+func New(f *perffile.File) *Session {
 	kernel := &PIDInfo{
 		Comm:  "[kernel]",
 		Extra: make(ForkableExtra),
@@ -24,6 +25,7 @@ func New() *Session {
 			// The kernel is implicitly PID -1
 			-1: kernel,
 		},
+		File:  f,
 		Extra: make(map[ExtraKey]interface{}),
 	}
 }

@@ -7,8 +7,10 @@ package perfsession
 import (
 	"debug/dwarf"
 	"debug/elf"
+	"fmt"
 	"io"
 	"log"
+	"os/user"
 	"sort"
 )
 
@@ -38,6 +40,15 @@ func Symbolize(session *Session, mmap *Mmap, ip uint64, out *Symbolic) bool {
 
 var symbolicExtraKey = NewExtraKey("perfsession.symbolicExtra")
 
+var buildIDDir = (func() string {
+	// See set_buildid_dir in tools/perf/util/config.c.
+	u, err := user.Current()
+	if err != nil {
+		return ".debug"
+	}
+	return fmt.Sprintf("%s/.debug", u.HomeDir)
+})()
+
 func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 	tables, ok := session.Extra[symbolicExtraKey].(map[string]*symbolicExtra)
 	if !ok {
@@ -51,13 +62,46 @@ func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 	}
 	tables[filename] = (*symbolicExtra)(nil)
 
+	// See dso__data_fd in toosl/perf/util/dso.c.
+
+	// TODO: Handle kernel symbols. See dso__find_kallsyms.
+
+	// Try build ID cache first.
+	//
+	// TODO: Cache filename to build ID mapping.
+	bids, err := session.File.BuildIDs()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, bid := range bids {
+		if bid.Filename == filename {
+			nfilename := fmt.Sprintf("%s/.build-id/%.2s/%s", buildIDDir, bid.BuildID, bid.BuildID.String()[2:])
+			extra, err = newSymbolicExtra(nfilename)
+			if err == nil {
+				break
+			}
+		}
+	}
+
+	// Try original path.
+	if extra == nil {
+		extra, err = newSymbolicExtra(filename)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	tables[filename] = extra
+	return extra
+}
+
+func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 	// Load ELF
 	//
 	// TODO: Relocate ELF.
 	elff, err := elf.Open(filename)
 	if err != nil {
-		log.Printf("error loading ELF file %s: %s\n", filename, err)
-		return nil
+		return nil, fmt.Errorf("error loading ELF file %s: %s", filename, err)
 	}
 	defer elff.Close()
 
@@ -65,21 +109,17 @@ func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 	//
 	// TODO: Support build IDs and split DWARF
 	if elff.Section(".debug_info") == nil {
-		log.Printf("no DWARF info for %s\n", filename)
-		return nil
+		return nil, fmt.Errorf("no DWARF info for %s", filename)
 	}
 	dwarff, err := elff.DWARF()
 	if err != nil {
-		log.Printf("error loading DWARF from %s: %s\n", filename, err)
-		return nil
+		return nil, fmt.Errorf("error loading DWARF from %s: %s", filename, err)
 	}
 
-	extra = &symbolicExtra{
+	return &symbolicExtra{
 		dwarfFuncTable(dwarff),
 		dwarfLineTable(dwarff),
-	}
-	tables[filename] = extra
-	return extra
+	}, nil
 }
 
 type symbolicExtra struct {

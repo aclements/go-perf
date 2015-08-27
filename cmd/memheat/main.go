@@ -49,7 +49,7 @@ func main() {
 	}
 	defer f.Close()
 
-	s := perfsession.New()
+	s := perfsession.New(f)
 
 	// Collect samples by IP (TODO: by (comm, ip) or something)
 	ipToInfo := map[uint64]*lineStat{}
