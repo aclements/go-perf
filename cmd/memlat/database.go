@@ -152,7 +152,7 @@ func parsePerf(fileName string) *database {
 			if _, ok := p.ipInfo[r.IP]; !ok {
 				// TODO: Intern strings
 				var symb perfsession.Symbolic
-				if !perfsession.Symbolize(mmap, r.IP, &symb) {
+				if !perfsession.Symbolize(s, mmap, r.IP, &symb) {
 					droppedSymbols++
 				}
 				if symb.FuncName == "" {

@@ -68,7 +68,7 @@ func main() {
 			line, ok := ipToInfo[r.IP]
 			if !ok {
 				var symb perfsession.Symbolic
-				if !perfsession.Symbolize(mmap, r.IP, &symb) {
+				if !perfsession.Symbolize(s, mmap, r.IP, &symb) {
 					break
 				}
 				line = &lineStat{

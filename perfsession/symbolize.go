@@ -17,8 +17,8 @@ type Symbolic struct {
 	Line     dwarf.LineEntry
 }
 
-func Symbolize(mmap *Mmap, ip uint64, out *Symbolic) bool {
-	s := getSymbolicExtra(mmap)
+func Symbolize(session *Session, mmap *Mmap, ip uint64, out *Symbolic) bool {
+	s := getSymbolicExtra(session, mmap.Filename)
 	if s == nil {
 		return false
 	}
@@ -38,19 +38,25 @@ func Symbolize(mmap *Mmap, ip uint64, out *Symbolic) bool {
 
 var symbolicExtraKey = NewExtraKey("perfsession.symbolicExtra")
 
-func getSymbolicExtra(mmap *Mmap) *symbolicExtra {
-	extra, ok := mmap.Extra[symbolicExtraKey].(*symbolicExtra)
+func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
+	tables, ok := session.Extra[symbolicExtraKey].(map[string]*symbolicExtra)
+	if !ok {
+		tables = make(map[string]*symbolicExtra)
+		session.Extra[symbolicExtraKey] = tables
+	}
+
+	extra, ok := tables[filename]
 	if ok {
 		return extra
 	}
+	tables[filename] = (*symbolicExtra)(nil)
 
 	// Load ELF
 	//
 	// TODO: Relocate ELF.
-	elff, err := elf.Open(mmap.Filename)
+	elff, err := elf.Open(filename)
 	if err != nil {
-		log.Printf("error loading ELF file %s: %s\n", mmap.Filename, err)
-		mmap.Extra[symbolicExtraKey] = (*symbolicExtra)(nil)
+		log.Printf("error loading ELF file %s: %s\n", filename, err)
 		return nil
 	}
 	defer elff.Close()
@@ -58,10 +64,13 @@ func getSymbolicExtra(mmap *Mmap) *symbolicExtra {
 	// Load DWARF
 	//
 	// TODO: Support build IDs and split DWARF
+	if elff.Section(".debug_info") == nil {
+		log.Printf("no DWARF info for %s\n", filename)
+		return nil
+	}
 	dwarff, err := elff.DWARF()
 	if err != nil {
-		log.Printf("error loading DWARF from %s: %s\n", mmap.Filename, err)
-		mmap.Extra[symbolicExtraKey] = (*symbolicExtra)(nil)
+		log.Printf("error loading DWARF from %s: %s\n", filename, err)
 		return nil
 	}
 
@@ -69,17 +78,13 @@ func getSymbolicExtra(mmap *Mmap) *symbolicExtra {
 		dwarfFuncTable(dwarff),
 		dwarfLineTable(dwarff),
 	}
-	mmap.Extra[symbolicExtraKey] = extra
+	tables[filename] = extra
 	return extra
 }
 
 type symbolicExtra struct {
 	functab []funcRange
 	linetab []dwarf.LineEntry
-}
-
-func (s *symbolicExtra) Fork(pid int) Forkable {
-	return s
 }
 
 func (s *symbolicExtra) findIP(ip uint64) (f *funcRange, l *dwarf.LineEntry) {

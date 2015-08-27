@@ -9,6 +9,8 @@ import "github.com/aclements/go-perf/perffile"
 type Session struct {
 	kernel  *PIDInfo
 	pidInfo map[int]*PIDInfo
+
+	Extra map[ExtraKey]interface{}
 }
 
 func New() *Session {
@@ -22,6 +24,7 @@ func New() *Session {
 			// The kernel is implicitly PID -1
 			-1: kernel,
 		},
+		Extra: make(map[ExtraKey]interface{}),
 	}
 }
 
