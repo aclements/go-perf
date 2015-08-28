@@ -108,18 +108,20 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 	// Load DWARF
 	//
 	// TODO: Support build IDs and split DWARF
-	if elff.Section(".debug_info") == nil {
-		return nil, fmt.Errorf("no DWARF info for %s", filename)
-	}
-	dwarff, err := elff.DWARF()
-	if err != nil {
-		return nil, fmt.Errorf("error loading DWARF from %s: %s", filename, err)
+	if elff.Section(".debug_info") != nil {
+		dwarff, err := elff.DWARF()
+		if err != nil {
+			return nil, fmt.Errorf("error loading DWARF from %s: %s", filename, err)
+		}
+
+		return &symbolicExtra{
+			dwarfFuncTable(dwarff),
+			dwarfLineTable(dwarff),
+		}, nil
 	}
 
-	return &symbolicExtra{
-		dwarfFuncTable(dwarff),
-		dwarfLineTable(dwarff),
-	}, nil
+	// Make do with the ELF symbols.
+	return &symbolicExtra{elfFuncTable(filename, elff), nil}, nil
 }
 
 type symbolicExtra struct {
@@ -128,22 +130,22 @@ type symbolicExtra struct {
 }
 
 func (s *symbolicExtra) findIP(ip uint64) (f *funcRange, l *dwarf.LineEntry) {
-	if s.functab == nil || s.linetab == nil {
-		return nil, nil
+	if s.functab != nil {
+		i := sort.Search(len(s.functab), func(i int) bool {
+			return ip < s.functab[i].highpc
+		})
+		if i < len(s.functab) && s.functab[i].lowpc <= ip && ip < s.functab[i].highpc {
+			f = &s.functab[i]
+		}
 	}
 
-	i := sort.Search(len(s.functab), func(i int) bool {
-		return ip < s.functab[i].highpc
-	})
-	if i < len(s.functab) && s.functab[i].lowpc <= ip && ip < s.functab[i].highpc {
-		f = &s.functab[i]
-	}
-
-	i = sort.Search(len(s.linetab), func(i int) bool {
-		return ip < s.linetab[i].Address
-	})
-	if i != 0 && !s.linetab[i-1].EndSequence {
-		l = &s.linetab[i-1]
+	if s.linetab != nil {
+		i := sort.Search(len(s.linetab), func(i int) bool {
+			return ip < s.linetab[i].Address
+		})
+		if i != 0 && !s.linetab[i-1].EndSequence {
+			l = &s.linetab[i-1]
+		}
 	}
 
 	return
@@ -155,8 +157,6 @@ type funcRange struct {
 }
 
 func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
-	// TODO Use ELF symbol table if DWARF isn't available.
-
 	// Walk DWARF for functions
 	// TODO: Use .debug_pubnames (not supported by dwarf package)
 	r := dwarff.Reader()
@@ -202,6 +202,43 @@ func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
 	}
 
 	sort.Sort(funcRangeSorter(out))
+
+	return out
+}
+
+func elfFuncTable(filename string, elff *elf.File) []funcRange {
+	if elff.Type != elf.ET_EXEC {
+		// TODO: Deal with relocatable shared objects. (ET_DYN)
+		// Note that PIE binaries are ET_DYN.
+		return nil
+	}
+	out := make([]funcRange, 0)
+	syms, err := elff.Symbols()
+	if err != nil {
+		if err != elf.ErrNoSymbols {
+			log.Fatal("%s: %s", filename, err)
+		}
+		return nil
+	}
+	for _, sym := range syms {
+		if elf.SymType(sym.Info&0xF) != elf.STT_FUNC {
+			continue
+		}
+		out = append(out, funcRange{sym.Name, sym.Value, sym.Value + sym.Size})
+	}
+
+	sort.Sort(funcRangeSorter(out))
+
+	// Assign symbols highpcs if they don't have them.
+	for i := range out {
+		if out[i].highpc == out[i].lowpc {
+			if i == len(out)-1 {
+				out[i].highpc++
+			} else {
+				out[i].highpc = out[i+1].lowpc
+			}
+		}
+	}
 
 	return out
 }
