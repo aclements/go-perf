@@ -5,19 +5,26 @@
 package perfsession
 
 import (
+	"bufio"
 	"debug/dwarf"
 	"debug/elf"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/user"
+	"regexp"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 type Symbolic struct {
 	FuncName string
 	Line     dwarf.LineEntry
 }
+
+// TODO: Take a PID and look up the mmap.
 
 func Symbolize(session *Session, mmap *Mmap, ip uint64, out *Symbolic) bool {
 	s := getSymbolicExtra(session, mmap.Filename)
@@ -56,6 +63,22 @@ func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 		session.Extra[symbolicExtraKey] = tables
 	}
 
+	// For some reason, the filename for the kernel mapping looks
+	// like "[kernel.kallsyms]_text", but the build ID file name
+	// is just "[kernel.kallsyms]". Match them up.
+	//
+	// TODO: There may be a reason the file name is different that
+	// I don't understand. perf doesn't seem to have any special
+	// treatment of "_text".
+	//
+	// TODO: perf works a lot harder to find kernel symbols. See
+	// dso__find_kallsyms in tools/perf/util/symbol.c.
+	isKallsyms := false
+	if strings.HasPrefix(filename, "[kernel.kallsyms]") {
+		isKallsyms = true
+		filename = "[kernel.kallsyms]"
+	}
+
 	extra, ok := tables[filename]
 	if ok {
 		return extra
@@ -63,8 +86,6 @@ func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 	tables[filename] = (*symbolicExtra)(nil)
 
 	// See dso__data_fd in toosl/perf/util/dso.c.
-
-	// TODO: Handle kernel symbols. See dso__find_kallsyms.
 
 	// Try build ID cache first.
 	//
@@ -76,7 +97,11 @@ func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 	for _, bid := range bids {
 		if bid.Filename == filename {
 			nfilename := fmt.Sprintf("%s/.build-id/%.2s/%s", buildIDDir, bid.BuildID, bid.BuildID.String()[2:])
-			extra, err = newSymbolicExtra(nfilename)
+			if isKallsyms {
+				extra, err = newKallsyms(nfilename)
+			} else {
+				extra, err = newSymbolicExtra(nfilename)
+			}
 			if err == nil {
 				break
 			}
@@ -124,6 +149,41 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 	// Make do with the ELF symbols.
 	funcTable, isReloc := elfFuncTable(filename, elff)
 	return &symbolicExtra{funcTable, nil, isReloc}, nil
+}
+
+var kallsymsRe = regexp.MustCompile("^([0-9a-fA-F]*) +(.) (.*)")
+
+func newKallsyms(filename string) (*symbolicExtra, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("error loading kallsyms from %s: %s", filename, err)
+	}
+	defer f.Close()
+
+	// This file is a nm-style object list. See kallsyms__parse in
+	// tools/lib/symbol/kallsyms.c.
+	functab := make([]funcRange, 0)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		subs := kallsymsRe.FindStringSubmatch(scanner.Text())
+		if subs == nil {
+			continue
+		}
+		typ, name := subs[2][0], subs[3]
+		if !(typ == 't' || typ == 'T') {
+			continue
+		}
+		addr, _ := strconv.ParseUint(subs[1], 16, 64)
+		functab = append(functab, funcRange{name, addr, addr})
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.Sort(funcRangeSorter(functab))
+	setFuncHighPCs(functab)
+
+	return &symbolicExtra{functab, nil, false}, nil
 }
 
 type symbolicExtra struct {
@@ -255,17 +315,7 @@ func elfFuncTable(filename string, elff *elf.File) (out []funcRange, isReloc boo
 	}
 
 	sort.Sort(funcRangeSorter(out))
-
-	// Assign symbols highpcs if they don't have them.
-	for i := range out {
-		if out[i].highpc == out[i].lowpc {
-			if i == len(out)-1 {
-				out[i].highpc++
-			} else {
-				out[i].highpc = out[i+1].lowpc
-			}
-		}
-	}
+	setFuncHighPCs(out)
 
 	return
 }
@@ -282,6 +332,21 @@ func (s funcRangeSorter) Swap(i, j int) {
 
 func (s funcRangeSorter) Less(i, j int) bool {
 	return s[i].lowpc < s[j].lowpc
+}
+
+// setFuncHighPCs fills in missing highpc values in functab. functab
+// must be sorted.
+func setFuncHighPCs(functab []funcRange) {
+	// Assign symbols highpcs if they don't have them.
+	for i := range functab {
+		if functab[i].highpc == functab[i].lowpc {
+			if i == len(functab)-1 {
+				functab[i].highpc++
+			} else {
+				functab[i].highpc = functab[i+1].lowpc
+			}
+		}
+	}
 }
 
 func dwarfLineTable(dwarff *dwarf.Data) []dwarf.LineEntry {
