@@ -24,7 +24,7 @@ func Symbolize(session *Session, mmap *Mmap, ip uint64, out *Symbolic) bool {
 	if s == nil {
 		return false
 	}
-	f, l := s.findIP(ip)
+	f, l := s.findIP(mmap, ip)
 	if f == nil {
 		out.FuncName = ""
 	} else {
@@ -97,8 +97,6 @@ func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 
 func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 	// Load ELF
-	//
-	// TODO: Relocate ELF.
 	elff, err := elf.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("error loading ELF file %s: %s", filename, err)
@@ -107,8 +105,10 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 
 	// Load DWARF
 	//
-	// TODO: Support build IDs and split DWARF
-	if elff.Section(".debug_info") != nil {
+	// TODO: Support build IDs and debug links
+	//
+	// TODO: Support DWARF for relocatable objects
+	if elff.Type == elf.ET_EXEC && elff.Section(".debug_info") != nil {
 		dwarff, err := elff.DWARF()
 		if err != nil {
 			return nil, fmt.Errorf("error loading DWARF from %s: %s", filename, err)
@@ -117,20 +117,30 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 		return &symbolicExtra{
 			dwarfFuncTable(dwarff),
 			dwarfLineTable(dwarff),
+			false,
 		}, nil
 	}
 
 	// Make do with the ELF symbols.
-	return &symbolicExtra{elfFuncTable(filename, elff), nil}, nil
+	funcTable, isReloc := elfFuncTable(filename, elff)
+	return &symbolicExtra{funcTable, nil, isReloc}, nil
 }
 
 type symbolicExtra struct {
 	functab []funcRange
 	linetab []dwarf.LineEntry
+
+	// isReloc indicates that lowpc/highpc in functab are ELF file
+	// offsets rather than virtual addresses.
+	isReloc bool
 }
 
-func (s *symbolicExtra) findIP(ip uint64) (f *funcRange, l *dwarf.LineEntry) {
+func (s *symbolicExtra) findIP(mmap *Mmap, ip uint64) (f *funcRange, l *dwarf.LineEntry) {
 	if s.functab != nil {
+		if s.isReloc {
+			// functab is indexed by file offset.
+			ip = ip - mmap.Addr + mmap.FileOffset
+		}
 		i := sort.Search(len(s.functab), func(i int) bool {
 			return ip < s.functab[i].highpc
 		})
@@ -206,25 +216,42 @@ func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
 	return out
 }
 
-func elfFuncTable(filename string, elff *elf.File) []funcRange {
-	if elff.Type != elf.ET_EXEC {
-		// TODO: Deal with relocatable shared objects. (ET_DYN)
-		// Note that PIE binaries are ET_DYN.
-		return nil
+func elfFuncTable(filename string, elff *elf.File) (out []funcRange, isReloc bool) {
+	switch elff.Type {
+	case elf.ET_EXEC:
+		// Symbol values are virtual addresses.
+		isReloc = false
+	case elf.ET_DYN:
+		// Symbol values are section-relative offsets. This
+		// will resolve them to file offsets.
+		isReloc = true
+	default:
+		return nil, false
 	}
-	out := make([]funcRange, 0)
+
+	out = make([]funcRange, 0)
 	syms, err := elff.Symbols()
 	if err != nil {
 		if err != elf.ErrNoSymbols {
 			log.Fatal("%s: %s", filename, err)
 		}
-		return nil
+		return nil, false
 	}
 	for _, sym := range syms {
-		if elf.SymType(sym.Info&0xF) != elf.STT_FUNC {
+		if elf.SymType(sym.Info&0xF) != elf.STT_FUNC || sym.Section == elf.SHN_UNDEF {
 			continue
 		}
-		out = append(out, funcRange{sym.Name, sym.Value, sym.Value + sym.Size})
+		lowpc := sym.Value
+		if isReloc {
+			// lowpc is a section-relative offset.
+			// Translate it to a file offset.
+			if int(sym.Section) >= len(elff.Sections) {
+				continue
+			}
+			sec := elff.Sections[sym.Section]
+			lowpc = lowpc - sec.Addr + sec.Offset
+		}
+		out = append(out, funcRange{sym.Name, lowpc, lowpc + sym.Size})
 	}
 
 	sort.Sort(funcRangeSorter(out))
@@ -240,7 +267,7 @@ func elfFuncTable(filename string, elff *elf.File) []funcRange {
 		}
 	}
 
-	return out
+	return
 }
 
 type funcRangeSorter []funcRange
