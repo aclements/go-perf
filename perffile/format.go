@@ -380,7 +380,12 @@ type RecordMmap struct {
 
 	Data bool // from header.misc
 
-	Addr, Len, PgOff   uint64
+	// Addr and Len are the virtual address of the start of this
+	// mapping and its length in bytes.
+	Addr, Len uint64
+	// FileOffset is the byte offset in the mapped file of the
+	// beginning of this mapping.
+	FileOffset         uint64
 	Major, Minor       uint32
 	Ino, InoGeneration uint64
 	Prot, Flags        uint32

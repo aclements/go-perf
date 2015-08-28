@@ -193,9 +193,10 @@ func (r *Records) parseMmap(bd *bufDecoder, hdr *recordHeader, common *RecordCom
 	// Decode hdr.Misc
 	o.Data = (hdr.Misc&recordMiscMmapData != 0)
 
-	// Decode fields
+	// Decode fields. Note that perf calls the file offset
+	// "pgoff", but it's actually a byte offset.
 	o.PID, o.TID = int(bd.i32()), int(bd.i32())
-	o.Addr, o.Len, o.PgOff = bd.u64(), bd.u64(), bd.u64()
+	o.Addr, o.Len, o.FileOffset = bd.u64(), bd.u64(), bd.u64()
 	if v2 {
 		o.Major, o.Minor = bd.u32(), bd.u32()
 		o.Ino, o.InoGeneration = bd.u64(), bd.u64()
