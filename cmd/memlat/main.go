@@ -42,9 +42,9 @@
 //
 // memlat will parse and symbolize the profile and start a web server
 // listening by default on localhost;8001.
-package main
-
+//
 // TODO: Document the user interface once it's settled.
+package main
 
 import (
 	"bufio"
