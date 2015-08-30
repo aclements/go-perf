@@ -68,10 +68,13 @@ import (
 // assigned by an init function if the static files are available.
 var staticFiles mapFS
 
+// TODO: Open a browser automatically. Maybe bind to any address in
+// this mode.
+
 func main() {
 	var (
 		flagInput   = flag.String("i", "perf.data", "read memory latency profile from `file`")
-		flagHttp    = flag.String("http", ":8001", "serve HTTP on `address`")
+		flagHttp    = flag.String("http", "localhost:8001", "serve HTTP on `address`")
 		flagDocRoot = flag.String("docroot", "", "alternate `path` to static web resources")
 	)
 	flag.Parse()
