@@ -2,7 +2,49 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Command memlat is a web-based interactive browser for memory
+// latency profiles.
+//
+// Intel CPUs starting with Nehalem support detailed hardware
+// profiling of memory load operations and, in particular, load
+// latency. Sandy Bridge introduced further support for profiling
+// memory store operations. Memory stalls and conflicts are
+// increasingly impacting software performance and these profiles can
+// give incredible insight into these problems. However, the richness
+// of these profiles make them difficult to interpret using
+// traditional profiling tools and techniques.
+//
+// memlat is a profile browser built for understanding and
+// interpreting memory latency profiles. The central concept is a
+// latency distribution, which indicates how many cycles are spent in
+// memory operations according to the latency of those operations. For
+// example, if there are 10 loads that take 10 cycles and 2 loads that
+// takes 100 cycles, the latency distribution consists of a 100 cycle
+// spike at 10 cycles and a 200 cycle spike at 100 cycles. The total
+// weight of this distribution accounts for the total cycles spent
+// waiting on memory loads.
+//
+// To download and install memlat, run
+//
+//    go get github.com/aclements/go-perf/cmd/memlat
+//
+// memlat works with the standard memory latency profiles recorded by
+// the Linux perf tool. To record a memory latency profile, use perf's
+// "mem" subcommand. For example,
+//
+//    perf mem record <command>  # Record a memory profile for command
+//    perf mem record -a         # Record a system-wide memory profile
+//
+// This will write the profile to a file called perf.data. Then,
+// simply start memlat with
+//
+//    memlat
+//
+// memlat will parse and symbolize the profile and start a web server
+// listening by default on localhost;8001.
 package main
+
+// TODO: Document the user interface once it's settled.
 
 import (
 	"bufio"
