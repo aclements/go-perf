@@ -282,14 +282,19 @@
   <template>
     <paper-card class="layout center" style="width: 1000px">
       <paper-tabs id="tabs" selected="{{groupBy}}" attr-for-selected="name" noink>
-        <paper-tab name="pid" hidden="{{!_legal.pid}}">By process</paper-tab>
-        <paper-tab name="funcName" hidden="{{!_legal.funcName}}">By function</paper-tab>
-        <paper-tab name="annotation" hidden="{{!_legal.annotation}}">Source annotation</paper-tab>
-        <paper-tab name="line" hidden="{{!_legal.line}}">By source line</paper-tab>
-        <paper-tab name="address" hidden="{{!_legal.address}}">By address</paper-tab>
+        <paper-tab name="pid">By process</paper-tab>
+        <paper-tab name="funcName">By function</paper-tab>
+        <paper-tab name="annotation">Source annotation</paper-tab>
+        <paper-tab name="line">By source line</paper-tab>
+        <paper-tab name="address">By address</paper-tab>
       </paper-tabs>
       <div class="container">
-        <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}"></memlat-query-groupby>
+        <template is="dom-if" if="{{_getWarning(groupBy, _legal)}}">
+          <span>{{_getWarning(groupBy, _legal)}}</span>
+        </template>
+        <template is="dom-if" if="{{!_getWarning(groupBy, _legal)}}">
+          <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}" enabled="{{_getEnabled(groupBy, _legal)}}"></memlat-query-table>
+        </template>
       </div>
     </paper-card>
   </template>
@@ -330,9 +335,18 @@ console.log(cfilter);
           address: filter.pid && !filter.address,
         };
       },
-      _legalChanged: function(newLegal) {
+      _getWarning: function(groupBy, legal) {
+        if (legal[groupBy])
+          return;
+        if (groupBy === 'annotation')
+          return 'Please select a function from the "By function" tab.';
+      },
+      _getEnabled: function(groupBy, legal) {
+        return legal[groupBy];
+      },
+      _legalChanged: function(newLegal, oldLegal) {
         // Compute the best legal groupBy.
-        if (!newLegal[this.groupBy]) {
+        if (oldLegal !== undefined && oldLegal[this.groupBy] && !newLegal[this.groupBy]) {
           var order = ['pid', 'funcName', 'annotation', 'line', 'address'];
           var best;
           for (var i = 0; i < order.length && !best; i++)
@@ -415,6 +429,7 @@ console.log(cfilter);
         groupBy: String,
         filter: Object,
         _reply: Object,
+        enabled: Boolean,
       },
       _getQueryParams: function(filter, groupBy) {
         var params = {groupBy: groupBy, limit: 100};
@@ -448,6 +463,9 @@ console.log(cfilter);
         return '[all]';
       },
       _rowClicked: function(ev) {
+        if (!this.enabled)
+          return;
+
         var hist = ev.model.get('item');
 
         // Create the filter from hist's properties.
