@@ -74,7 +74,7 @@
     Polymer({
       is: "app-memlat-browser",
       properties: {
-        groupBy: {type: String, value: 'pid'},
+        groupBy: {type: String, value: 'funcName'},
         filters: {type: Array, value: []},
       },
       observers: [
@@ -313,11 +313,11 @@
   <template>
     <paper-card class="layout center" style="width: 1000px">
       <paper-tabs id="tabs" selected="{{groupBy}}" attr-for-selected="name" noink>
-        <paper-tab name="pid">By process</paper-tab>
         <paper-tab name="funcName">By function</paper-tab>
         <paper-tab name="annotation">Source annotation</paper-tab>
         <paper-tab name="line">By source line</paper-tab>
         <paper-tab name="address">By address</paper-tab>
+        <paper-tab name="pid">By process</paper-tab>
       </paper-tabs>
       <div class="container">
         <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}" enabled="{{_getEnabled(groupBy, _legal)}}"></memlat-query-table>
@@ -331,7 +331,7 @@
     Polymer({
       is: "memlat-query-groupby",
       properties: {
-        groupBy: {type: String, value: 'pid', notify: true},
+        groupBy: {type: String, notify: true},
         filters: Array,
         _filter: {type: Object, computed: '_getFilter(filters.*)'},
         _legal: {type: Object, computed: '_getLegal(_filter)', observer:'_legalChanged'},
@@ -354,11 +354,11 @@ console.log(cfilter);
       _getLegal: function(filter) {
         // Return the currently legal groupBys.
         return {
-          pid: !filter.pid,
           funcName: !filter.funcName,
           annotation: !filter.line,
           line: !filter.line,
-          address: filter.pid && !filter.address,
+          address: !filter.address,
+          pid: !filter.pid,
         };
       },
       _getEnabled: function(groupBy, legal) {
@@ -367,7 +367,7 @@ console.log(cfilter);
       _legalChanged: function(newLegal, oldLegal) {
         // Compute the best legal groupBy.
         if (oldLegal !== undefined && oldLegal[this.groupBy] && !newLegal[this.groupBy]) {
-          var order = ['pid', 'funcName', 'annotation', 'line', 'address'];
+          var order = ['funcName', 'annotation', 'line', 'address', 'pid'];
           var best;
           for (var i = 0; i < order.length && !best; i++)
             if (newLegal[order[i]])
