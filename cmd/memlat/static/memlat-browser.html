@@ -372,12 +372,20 @@ console.log(cfilter);
     tbody > tr:hover {
       background: #eee;
     }
-    tr > td:nth-child(2) {
+    tr > td:last-child {
       text-align: center;
     }
     tr > th {
       text-align: left;
       padding-top: 1em;
+    }
+    td.line {
+      text-align: right;
+      padding-right: 0.5em;
+      color: #888;
+    }
+    td.line:before {
+      content: attr(data-line);
     }
   </style>
 
@@ -385,24 +393,39 @@ console.log(cfilter);
     <iron-ajax auto url="h" params="{{_getQueryParams(filter, groupBy)}}" last-response="{{_reply}}"></iron-ajax>
     <table cellspacing="0" cellpadding="2px">
       <colgroup>
+        <template is="dom-if" if="{{_isAnnotation(groupBy)}}" restamp="true">
+          <col style="width: 3em"></col>
+        </template>
         <col></col><col width="620px"></col>
       </colgroup>
       <thead>
         <tr>
+          <template is="dom-if" if="{{_isAnnotation(groupBy)}}" restamp="true">
+            <td></td>
+          </template>
           <td></td><td style="font-weight: bold">Memory access cycles distribution</td>
         </tr>
         <tr>
+          <template is="dom-if" if="{{_isAnnotation(groupBy)}}" restamp="true">
+            <td></td>
+          </template>
           <td></td><td><memlat-scale ticks="{{_reply.MajorTicksX}}" tick-labels="{{_reply.MajorTicks}}" minor-ticks="{{_reply.MinorTicksX}}"></memlat-scale></td>
         </tr>
       </thead>
       <tbody>
         <template is="dom-repeat" items="{{_reply.Histograms}}">
-          <template is="dom-if" if="{{item.isHeader}}">
-            <tr><th colspan="2">{{item.text}}</th></tr>
+          <template is="dom-if" if="{{item.isHeader}}" restamp="true">
+            <tr><th colspan="3">{{item.text}}</th></tr>
           </template>
-          <template is="dom-if" if="{{!item.isHeader}}">
+          <template is="dom-if" if="{{!item.isHeader}}" restamp="true">
             <tr on-click="_rowClicked">
-              <td>{{_label(item)}}</td>
+              <template is="dom-if" if="{{_isAnnotation(groupBy)}}" restamp="true">
+                <td class="line" data-line$="{{item.line}}"></td>
+                <td style="white-space: pre">{{item.text}}</td>
+              </template>
+              <template is="dom-if" if="{{!_isAnnotation(groupBy)}}" restamp="true">
+                <td>{{_label(item)}}</td>
+              </template>
               <td>
                 <template is="dom-if" if="{{item.Bins}}">
                   <memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
@@ -417,10 +440,7 @@ console.log(cfilter);
   <script>
     // TODO: Make it possible to increase the query limit.
     //
-    // TODO: Better annotation formatting: source indentation, percent
-    // contribution of each line.
-    //
-    // TODO: Better filter label when selecting a line in annotation.
+    // TODO: Consider showing percent contribution of each row.
     //
     // TODO: Assembly-level annotation.
     Polymer({
@@ -446,8 +466,6 @@ console.log(cfilter);
             return path;
           return '.../' + parts[parts.length-2] + '/' + parts[parts.length-1];
         }
-        if (this.groupBy === 'annotation')
-          return hist.line + ' ' + (hist.text || '');
         if (hist.pid && hist.comm)
           return hist.pid + ' (' + hist.comm + ')';
         if (hist.pid)
@@ -482,6 +500,9 @@ console.log(cfilter);
           return;
 
         this.fire('select', {'label': this._label(hist), 'filter': filter});
+      },
+      _isAnnotation: function(groupBy) {
+        return groupBy == 'annotation';
       },
     });
   </script>
