@@ -7,6 +7,8 @@
       href="bower_components/polymer/polymer.html">
 
 <link rel="import"
+      href="bower_components/iron-flex-layout/classes/iron-flex-layout.html">
+<link rel="import"
       href="bower_components/iron-ajax/iron-ajax.html">
 <link rel="import"
       href="bower_components/iron-icon/iron-icon.html">
@@ -23,8 +25,6 @@
 <!-- TODO: UI for showing summaries by data source -->
 
 <!-- TODO: Animate adding/removing filter to make the change clearer -->
-
-<!-- TODO: Fix layout responsiveness -->
 
 <!-- TODO: Option to expand data address filter to all addresses on --
   -- cache line or pair of cache lines. -->
@@ -60,10 +60,16 @@
 <dom-module id="app-memlat-browser">
   <!-- Top-level memory latency browser. -->
 
+  <style>
+    :host {
+      @apply(--layout-horizontal);
+    }
+  </style>
+
   <template>
-    <div style="display: flex; flex-wrap: wrap">
-      <memlat-profile-metadata></memlat-profile-metadata>
-      <div style="display: flex; flex-direction: column">
+    <div class="layout horizontal wrap">
+      <memlat-profile-metadata class="layout flex-2" style="min-width: 100px"></memlat-profile-metadata>
+      <div class="layout vertical flex-8" style="min-width: 800px">
         <memlat-query-filter filters="{{filters}}"></memlat-query-filter>
         <memlat-query-groupby group-by="{{groupBy}}" filters="{{filters}}" on-select="_addFilter"></memlat-query-groupby>
       </div>
@@ -154,16 +160,19 @@
 
   <style is="custom-style">
     :host {
-      display: block;
-      margin: 16px;
+      margin: 8px;
     }
 
     paper-card {
-      display: inline-flex;
+        display: block;
     }
 
-    div {
-      margin: 16px;
+    p:first-child {
+      margin-top: 0px;
+    }
+
+    p {
+      margin-bottom: 0px;
     }
 
     .label {
@@ -173,11 +182,13 @@
 
   <template>
     <iron-ajax auto url="metadata" last-response="{{_m}}"></iron-ajax>
-    <paper-card class="layout center" style="width: 300px">
-      <div>{{_m.Filename}}</div>
-      <template is="dom-repeat" items="{{_kvPretty(_m)}}">
-        <div><span class="label">{{item.k}}</span> <span>{{item.v}}</span></div>
-      </template>
+    <paper-card class="layout center">
+      <div class="card-content">
+        <p>{{_m.Filename}}</p>
+        <template is="dom-repeat" items="{{_kvPretty(_m)}}">
+          <p><span class="label">{{item.k}}</span> <span>{{item.v}}</span></p>
+        </template>
+      </div>
     </paper-card>
   </template>
 
@@ -207,8 +218,8 @@
 
   <style is="custom-style">
     :host {
-      display: block;
-      margin: 16px;
+      @apply(--layout-horizontal);
+      margin: 8px;
     }
 
     .title, .filter, .all {
@@ -246,7 +257,7 @@
   </style>
 
   <template>
-    <paper-card class="layout center" style="width: 1000px">
+    <paper-card class="layout flex justified">
       <!-- TODO: Better separators -->
       <div style="display: flex">
         <div class="title">
@@ -288,9 +299,9 @@
   <!-- UI for selecting groupBy and displaying grouped histograms. -->
 
   <style is="custom-style">
-    :host { 
-      display: block;
-      margin: 16px;
+    :host {
+      @apply(--layout-vertical);
+      margin: 8px;
     }
 
     paper-tabs, paper-toolbar {
@@ -303,14 +314,10 @@
       /* Left-align tab bar */
       flex: none;
     }
-
-    .container {
-      padding: 16px;
-    }
   </style>
 
   <template>
-    <paper-card class="layout center" style="width: 1000px">
+    <paper-card class="layout flex justified">
       <paper-tabs id="tabs" selected="{{groupBy}}" attr-for-selected="name" noink>
         <paper-tab name="funcName">By function</paper-tab>
         <paper-tab name="annotation">Source annotation</paper-tab>
@@ -318,7 +325,7 @@
         <paper-tab name="address">By address</paper-tab>
         <paper-tab name="pid">By process</paper-tab>
       </paper-tabs>
-      <div class="container">
+      <div class="card-content">
         <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}" enabled="{{_getEnabled(groupBy, _legal)}}"></memlat-query-table>
       </div>
     </paper-card>
