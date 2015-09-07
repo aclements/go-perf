@@ -31,6 +31,32 @@
 
 <!-- TODO: Keep scale visible or draw grid lines or something. -->
 
+<script>
+  var Memlat = {};
+
+  Memlat.filterToLabel = function(filter) {
+    function trimFile(path) {
+      var parts = path.split('/');
+      if (parts.length <= 2)
+        return path;
+      return '.../' + parts[parts.length-2] + '/' + parts[parts.length-1];
+    }
+    if (filter.pid && filter.comm)
+      return filter.pid + ' (' + filter.comm + ')';
+    if (filter.pid)
+      return '' + filter.pid;
+    if (filter.funcName)
+      return filter.funcName;
+    if (filter.fileName && filter.line)
+      return trimFile(filter.fileName) + ':' + filter.line;
+    if (filter.fileName)
+      return trimFile(filter.fileName);
+    if (filter.address)
+      return '0x' + filter.address.toString(16);
+    return '[all]';
+  };
+</script>
+
 <dom-module id="app-memlat-browser">
   <!-- Top-level memory latency browser. -->
 
@@ -233,7 +259,7 @@
         </template>
         <template is="dom-repeat" items="{{filters}}">
           <div class="filter" on-click="_removeFilter">
-            <span>{{item.label}}</span>
+            <span>{{_label(item)}}</span>
             <iron-icon icon="icons:cancel"></iron-icon>
           </div>
         </template>
@@ -250,6 +276,9 @@
       _removeFilter: function(ev) {
         console.log('_removeFilter', ev.model);
         this.splice('filters', ev.model.index, 1);
+      },
+      _label: function(filter) {
+        return Memlat.filterToLabel(filter);
       },
     });
   </script>
@@ -316,9 +345,9 @@ console.log('combining filters', filters);
         // Combine filters.
         var cfilter = {};
         for (var i = 0; i < filters.length; i++)
-          for (var prop in filters[i].filter)
-            if (filters[i].filter.hasOwnProperty(prop))
-              cfilter[prop] = filters[i].filter[prop];
+          for (var prop in filters[i])
+            if (filters[i].hasOwnProperty(prop))
+              cfilter[prop] = filters[i][prop];
 console.log(cfilter);
         return cfilter;
       },
@@ -460,25 +489,7 @@ console.log(cfilter);
         return params;
       },
       _label: function(hist) {
-        function trimFile(path) {
-          var parts = path.split('/');
-          if (parts.length <= 2)
-            return path;
-          return '.../' + parts[parts.length-2] + '/' + parts[parts.length-1];
-        }
-        if (hist.pid && hist.comm)
-          return hist.pid + ' (' + hist.comm + ')';
-        if (hist.pid)
-          return '' + hist.pid;
-        if (hist.funcName)
-          return hist.funcName;
-        if (hist.fileName && hist.line)
-          return trimFile(hist.fileName) + ':' + hist.line;
-        if (hist.fileName)
-          return trimFile(hist.fileName);
-        if (hist.address)
-          return '0x' + hist.address.toString(16);
-        return '[all]';
+        return Memlat.filterToLabel(hist);
       },
       _rowClicked: function(ev) {
         if (!this.enabled)
@@ -488,7 +499,7 @@ console.log(cfilter);
 
         // Create the filter from hist's properties.
         var filter = {}, anyProps = false;
-        var fprops = ['pid', 'funcName', 'fileName', 'line', 'address'];
+        var fprops = ['pid', 'comm', 'funcName', 'fileName', 'line', 'address'];
         for (var i = 0; i < fprops.length; i++) {
           if (hist.hasOwnProperty(fprops[i])) {
             filter[fprops[i]] = hist[fprops[i]];
@@ -499,7 +510,7 @@ console.log(cfilter);
         if (!anyProps)
           return;
 
-        this.fire('select', {'label': this._label(hist), 'filter': filter});
+        this.fire('select', filter);
       },
       _isAnnotation: function(groupBy) {
         return groupBy == 'annotation';
