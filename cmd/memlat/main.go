@@ -209,6 +209,10 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			hist, ok := groups[ipInfo]
 			if !ok {
 				hist = newHist()
+				if groupBy == "annotation" {
+					// Stripped out below.
+					hist.FuncName = ipInfo.funcName
+				}
 				hist.FileName = ipInfo.fileName
 				hist.Line = ipInfo.line
 				groups[ipInfo] = hist
@@ -231,52 +235,88 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	h.db.filter(&f, agg)
 
-	if groupBy != "annotation" {
-		// Sort histograms by weight.
-		sort.Sort(sort.Reverse(weightSorter(histograms)))
+	// Sort histograms by weight.
+	sort.Sort(sort.Reverse(weightSorter(histograms)))
 
+	if groupBy != "annotation" {
 		if limit != 0 && limit < len(histograms) {
 			histograms = histograms[:limit]
 		}
 	} else if len(histograms) != 0 {
-		// Find the min and max covered line.
-		fileName := histograms[0].FileName
-		minLine := histograms[0].Line
-		maxLine := minLine
-		haveLines := map[int]*latencyHistogram{}
-		for _, h := range histograms {
-			if h.FileName != fileName {
+		// TODO: When loading profile, check for out-of-date
+		// source files and warn.
+
+		// Find the top N functions.
+		topFuncs := []string{}
+		topFuncSet := map[string][]*latencyHistogram{}
+		for _, hist := range histograms {
+			if len(topFuncs) >= limit {
+				break
+			}
+			if topFuncSet[hist.FuncName] == nil {
+				topFuncs = append(topFuncs, hist.FuncName)
+				topFuncSet[hist.FuncName] = []*latencyHistogram{}
+			}
+		}
+
+		// Collect all histograms from the top functions.
+		for _, hist := range histograms {
+			if topFuncSet[hist.FuncName] != nil {
+				topFuncSet[hist.FuncName] = append(topFuncSet[hist.FuncName], hist)
+			}
+			hist.FuncName = ""
+		}
+		histograms = []*latencyHistogram{}
+
+		// Find the min and max line for each function.
+		for funcName, set := range topFuncSet {
+			minLine := set[0].Line
+			maxLine := minLine
+			haveLines := map[int]*latencyHistogram{}
+			for _, h := range set {
+				if h.Line < minLine {
+					minLine = h.Line
+				}
+				if h.Line > maxLine {
+					maxLine = h.Line
+				}
+				haveLines[h.Line] = h
+			}
+
+			// Read source lines and create empty histograms for
+			// lines we missed.
+			fileName := set[0].FileName
+			lines, err := getLines(fileName, minLine, maxLine)
+			if err != nil {
+				log.Println(err)
 				continue
 			}
-			if h.Line < minLine {
-				minLine = h.Line
+			if len(lines) == 0 {
+				continue
 			}
-			if h.Line > maxLine {
-				maxLine = h.Line
+			for line := minLine; line <= maxLine; line++ {
+				hist := haveLines[line]
+				if hist == nil {
+					hist = newLatencyHistogram(&scale)
+					set = append(set, hist)
+					hist.FileName = fileName
+					hist.Line = line
+					hist.Bins = nil
+				}
+				hist.Text = lines[line-minLine]
 			}
-			haveLines[h.Line] = h
-		}
 
-		// Read source lines and create empty histograms for
-		// lines we missed.
-		lines, err := getLines(fileName, minLine, maxLine)
-		if err != nil {
-			log.Println(err)
-			// Keep going
-		}
-		for line := minLine; line <= maxLine; line++ {
-			hist := haveLines[line]
-			if hist == nil {
-				hist = newHist()
-				hist.FileName = fileName
-				hist.Line = line
-				hist.Bins = nil
-			}
-			hist.Text = lines[line-minLine]
-		}
+			// Sort histograms by line number.
+			sort.Sort(lineSorter(set))
 
-		// Sort histograms by line number.
-		sort.Sort(lineSorter(histograms))
+			// Add function histograms to top-level list.
+			header := newLatencyHistogram(&scale)
+			header.Bins = nil
+			header.Text = funcName
+			header.IsHeader = true
+			histograms = append(histograms, header)
+			histograms = append(histograms, set...)
+		}
 	}
 
 	// Compute maximum bin size for bin scaling.
@@ -318,6 +358,8 @@ type latencyHistogram struct {
 	Line     int    `json:"line,omitempty"`
 	Address  uint64 `json:"address,omitempty"`
 	Text     string `json:"text,omitempty"`
+
+	IsHeader bool `json:"isHeader,omitempty"`
 }
 
 func newLatencyHistogram(scale scale.Quantitative) *latencyHistogram {

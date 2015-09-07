@@ -29,6 +29,8 @@
 <!-- TODO: Option to expand data address filter to all addresses on --
   -- cache line or pair of cache lines. -->
 
+<!-- TODO: Keep scale visible or draw grid lines or something. -->
+
 <dom-module id="app-memlat-browser">
   <!-- Top-level memory latency browser. -->
 
@@ -289,12 +291,7 @@
         <paper-tab name="address">By address</paper-tab>
       </paper-tabs>
       <div class="container">
-        <template is="dom-if" if="{{_getWarning(groupBy, _legal)}}">
-          <span>{{_getWarning(groupBy, _legal)}}</span>
-        </template>
-        <template is="dom-if" if="{{!_getWarning(groupBy, _legal)}}">
-          <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}" enabled="{{_getEnabled(groupBy, _legal)}}"></memlat-query-table>
-        </template>
+        <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}" enabled="{{_getEnabled(groupBy, _legal)}}"></memlat-query-table>
       </div>
     </paper-card>
   </template>
@@ -330,16 +327,10 @@ console.log(cfilter);
         return {
           pid: !filter.pid,
           funcName: !filter.funcName,
-          annotation: !!filter.funcName && !filter.line,
+          annotation: !filter.line,
           line: !filter.line,
           address: filter.pid && !filter.address,
         };
-      },
-      _getWarning: function(groupBy, legal) {
-        if (legal[groupBy])
-          return;
-        if (groupBy === 'annotation')
-          return 'Please select a function from the "By function" tab.';
       },
       _getEnabled: function(groupBy, legal) {
         return legal[groupBy];
@@ -384,6 +375,10 @@ console.log(cfilter);
     tr > td:nth-child(2) {
       text-align: center;
     }
+    tr > th {
+      text-align: left;
+      padding-top: 1em;
+    }
   </style>
 
   <template>
@@ -402,13 +397,18 @@ console.log(cfilter);
       </thead>
       <tbody>
         <template is="dom-repeat" items="{{_reply.Histograms}}">
-          <tr on-click="_rowClicked">
-            <td>{{_label(item)}}</td>
-            <td>
-              <template is="dom-if" if="{{item.Bins}}">
-                <memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
-              </template>
-          </tr>
+          <template is="dom-if" if="{{item.isHeader}}">
+            <tr><th colspan="2">{{item.text}}</th></tr>
+          </template>
+          <template is="dom-if" if="{{!item.isHeader}}">
+            <tr on-click="_rowClicked">
+              <td>{{_label(item)}}</td>
+              <td>
+                <template is="dom-if" if="{{item.Bins}}">
+                  <memlat-heat-map bins="{{item.Bins}}" max-val="{{_reply.MaxBin}}"></memlat-heat-map></td>
+                </template>
+            </tr>
+          </template>
         </template>
       </tbody>
     </table>
@@ -432,7 +432,7 @@ console.log(cfilter);
         enabled: Boolean,
       },
       _getQueryParams: function(filter, groupBy) {
-        var params = {groupBy: groupBy, limit: 100};
+        var params = {groupBy: groupBy, limit: groupBy == 'annotation' ? 3 : 100};
         Object.keys(filter).forEach(function(key) {
           params[key] = filter[key];
         });
