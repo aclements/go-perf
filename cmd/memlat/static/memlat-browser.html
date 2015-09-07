@@ -274,7 +274,6 @@
         filters: {type: Array, value: []},
       },
       _removeFilter: function(ev) {
-        console.log('_removeFilter', ev.model);
         this.splice('filters', ev.model.index, 1);
       },
       _label: function(filter) {
@@ -341,14 +340,12 @@
       },
       _getFilter: function(changeRecord) {
         var filters = changeRecord.base;
-console.log('combining filters', filters);
         // Combine filters.
         var cfilter = {};
         for (var i = 0; i < filters.length; i++)
           for (var prop in filters[i])
             if (filters[i].hasOwnProperty(prop))
               cfilter[prop] = filters[i][prop];
-console.log(cfilter);
         return cfilter;
       },
       _getLegal: function(filter) {
@@ -485,7 +482,6 @@ console.log(cfilter);
         Object.keys(filter).forEach(function(key) {
           params[key] = filter[key];
         });
-        console.log('query params', params);
         return params;
       },
       _label: function(hist) {
