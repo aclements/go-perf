@@ -106,7 +106,7 @@
         function encodeFragment(s) {
             s = encodeURIComponent(s);
             return s.replace(/%22/gi, '"').replace(/%2C/gi, ','). //"
-                replace(/%3A/gi, ':').
+                replace(/%3A/gi, ':').replace(/%2F/gi, '/').
                 replace(/%5B/gi, '[').replace(/%5D/gi, ']').
                 replace(/%7B/gi, '{').replace(/%7D/gi, '}');
         }
