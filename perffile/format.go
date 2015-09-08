@@ -623,6 +623,27 @@ const (
 	DataSrcOpNA DataSrcOp = 0
 )
 
+func (i DataSrcOp) String() string {
+	// TODO: It would be nice if stringer could do this.
+	s := ""
+	if i&DataSrcOpLoad != 0 {
+		s += "Load|"
+	}
+	if i&DataSrcOpStore != 0 {
+		s += "Store|"
+	}
+	if i&DataSrcOpPrefetch != 0 {
+		s += "Prefetch|"
+	}
+	if i&DataSrcOpExec != 0 {
+		s += "Exec|"
+	}
+	if len(s) == 0 {
+		return "NA"
+	}
+	return s[:len(s)-1]
+}
+
 type DataSrcLevel int
 
 const (
@@ -641,6 +662,47 @@ const (
 	DataSrcLevelNA DataSrcLevel = 0
 )
 
+func (i DataSrcLevel) String() string {
+	s := ""
+	if i&DataSrcLevelL1 != 0 {
+		s += "L1|"
+	}
+	if i&DataSrcLevelLFB != 0 {
+		s += "LFB|"
+	}
+	if i&DataSrcLevelL2 != 0 {
+		s += "L2|"
+	}
+	if i&DataSrcLevelL3 != 0 {
+		s += "L3|"
+	}
+	if i&DataSrcLevelLocalRAM != 0 {
+		s += "LocalRAM|"
+	}
+	if i&DataSrcLevelRemoteRAM1 != 0 {
+		s += "RemoteRAM1|"
+	}
+	if i&DataSrcLevelRemoteRAM2 != 0 {
+		s += "RemoteRAM2|"
+	}
+	if i&DataSrcLevelRemoteCache1 != 0 {
+		s += "RemoteCache1|"
+	}
+	if i&DataSrcLevelRemoteCache2 != 0 {
+		s += "RemoteCache2|"
+	}
+	if i&DataSrcLevelIO != 0 {
+		s += "IO|"
+	}
+	if i&DataSrcLevelUncached != 0 {
+		s += "Uncached|"
+	}
+	if len(s) == 0 {
+		return "NA"
+	}
+	return s[:len(s)-1]
+}
+
 type DataSrcSnoop int
 
 const (
@@ -651,6 +713,26 @@ const (
 
 	DataSrcSnoopNA DataSrcSnoop = 0
 )
+
+func (i DataSrcSnoop) String() string {
+	s := ""
+	if i&DataSrcSnoopNone != 0 {
+		s += "None|"
+	}
+	if i&DataSrcSnoopHit != 0 {
+		s += "Hit|"
+	}
+	if i&DataSrcSnoopMiss != 0 {
+		s += "Miss|"
+	}
+	if i&DataSrcSnoopHitM != 0 {
+		s += "HitM|"
+	}
+	if len(s) == 0 {
+		return "NA"
+	}
+	return s[:len(s)-1]
+}
 
 type DataSrcLock int
 
@@ -673,6 +755,32 @@ const (
 
 	DataSrcTLBNA DataSrcTLB = 0
 )
+
+func (i DataSrcTLB) String() string {
+	s := ""
+	if i&DataSrcTLBHit != 0 {
+		s += "Hit|"
+	}
+	if i&DataSrcTLBMiss != 0 {
+		s += "Miss|"
+	}
+	if i&DataSrcTLBL1 != 0 {
+		s += "L1|"
+	}
+	if i&DataSrcTLBL2 != 0 {
+		s += "L2|"
+	}
+	if i&DataSrcTLBHardwareWalker != 0 {
+		s += "HardwareWalker|"
+	}
+	if i&DataSrcTLBOSFaultHandler != 0 {
+		s += "OSFaultHandler|"
+	}
+	if len(s) == 0 {
+		return "NA"
+	}
+	return s[:len(s)-1]
+}
 
 type Transaction int
 
