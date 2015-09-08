@@ -60,6 +60,7 @@ import (
 
 	"github.com/aclements/go-moremath/scale"
 	"github.com/aclements/go-moremath/vec"
+	"github.com/aclements/go-perf/perffile"
 )
 
 //go:generate go run makestatic.go
@@ -231,6 +232,41 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			hist.update(r)
 		}
+
+	case "dataSrc":
+		groups := make(map[perffile.DataSrc]*latencyHistogram)
+		add1 := func(r *record, key perffile.DataSrc, label, group string) {
+			hist, ok := groups[key]
+			if !ok {
+				hist = newHist()
+				hist.group = group
+				hist.Text = label
+				groups[key] = hist
+			}
+			hist.update(r)
+		}
+		agg = func(p *proc, r *record) {
+			ds := h.db.dataSrcs[r.dataSrc]
+			if ds.Op != 0 {
+				add1(r, perffile.DataSrc{Op: ds.Op}, ds.Op.String(), "Operation")
+			}
+			if ds.Level != 0 {
+				miss := " hit"
+				if ds.Miss {
+					miss = " miss"
+				}
+				add1(r, perffile.DataSrc{Miss: ds.Miss, Level: ds.Level}, ds.Level.String()+miss, "Cache level")
+			}
+			if ds.Snoop != 0 {
+				add1(r, perffile.DataSrc{Snoop: ds.Snoop}, ds.Snoop.String(), "Snoop")
+			}
+			if ds.Locked != 0 {
+				add1(r, perffile.DataSrc{Locked: ds.Locked}, ds.Locked.String()[11:], "Locked")
+			}
+			if ds.TLB != 0 {
+				add1(r, perffile.DataSrc{TLB: ds.TLB}, ds.TLB.String(), "TLB")
+			}
+		}
 	}
 
 	h.db.filter(&f, agg)
@@ -238,11 +274,30 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Sort histograms by weight.
 	sort.Sort(sort.Reverse(weightSorter(histograms)))
 
-	if groupBy != "annotation" {
+	switch groupBy {
+	default:
 		if limit != 0 && limit < len(histograms) {
 			histograms = histograms[:limit]
 		}
-	} else if len(histograms) != 0 {
+
+	case "dataSrc":
+		// Add group headers
+		for i := 0; i < len(histograms); i++ {
+			if i == 0 || histograms[i-1].group != histograms[i].group {
+				histograms = append(histograms, nil)
+				copy(histograms[i+1:], histograms[i:])
+				histograms[i] = &latencyHistogram{
+					Text:     histograms[i+1].group,
+					IsHeader: true,
+				}
+				i++
+			}
+		}
+
+	case "annotation":
+		if len(histograms) == 0 {
+			break
+		}
 		// TODO: When loading profile, check for out-of-date
 		// source files and warn.
 
@@ -350,6 +405,7 @@ type latencyHistogram struct {
 	scale  scale.Quantitative
 	Bins   []int `json:",omitempty"`
 	weight int
+	group  string
 
 	PID      int    `json:"pid,omitempty"`
 	Comm     string `json:"comm,omitempty"`
@@ -399,6 +455,9 @@ func (w weightSorter) Len() int {
 }
 
 func (w weightSorter) Less(i, j int) bool {
+	if w[i].group != w[j].group {
+		return w[i].group > w[j].group
+	}
 	return w[i].weight < w[j].weight
 }
 

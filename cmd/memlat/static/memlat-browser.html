@@ -51,6 +51,8 @@
       return trimFile(filter.fileName);
     if (filter.address)
       return '0x' + filter.address.toString(16);
+    if (filter.text)
+      return filter.text;
     return '[all]';
   };
 </script>
@@ -320,6 +322,7 @@
         <paper-tab name="funcName">By function</paper-tab>
         <paper-tab name="annotation">Source annotation</paper-tab>
         <paper-tab name="line">By source line</paper-tab>
+        <paper-tab name="dataSrc">By data source</paper-tab>
         <paper-tab name="address">By address</paper-tab>
         <paper-tab name="pid">By process</paper-tab>
       </paper-tabs>
@@ -366,7 +369,7 @@
       _legalChanged: function(newLegal, oldLegal) {
         // Compute the best legal groupBy.
         if (oldLegal !== undefined && oldLegal[this.groupBy] && !newLegal[this.groupBy]) {
-          var order = ['funcName', 'annotation', 'line', 'address', 'pid'];
+          var order = ['funcName', 'annotation', 'line', 'dataSrc', 'address', 'pid'];
           var best;
           for (var i = 0; i < order.length && !best; i++)
             if (newLegal[order[i]])
