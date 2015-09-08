@@ -191,13 +191,17 @@ type filter struct {
 	pid      int
 	funcName string
 	fileName string
-	line     int    // Requires fileName.
-	address  uint64 // Requires PID.
+	line     int // Requires fileName.
+	address  uint64
+	dataSrc  perffile.DataSrc
 }
 
 // filter invokes cb for every record matching f.
 func (db *database) filter(f *filter, cb func(*proc, *record)) {
+	dsFilter := f.dataSrc != perffile.DataSrc{}
 	filterProc := func(proc *proc) {
+		var ds perffile.DataSrc
+
 		// TODO: Consider creating indexes for some or all of
 		// these. Then just do a list merge of the record
 		// indexes.
@@ -217,6 +221,29 @@ func (db *database) filter(f *filter, cb func(*proc, *record)) {
 			if f.line != 0 && f.line != ipi.line {
 				continue
 			}
+			if !dsFilter {
+				// Short-circuit dataSrc checking.
+				goto good
+			}
+
+			ds = db.dataSrcs[rec.dataSrc]
+			if f.dataSrc.Op != 0 && f.dataSrc.Op != ds.Op {
+				continue
+			}
+			if f.dataSrc.Level != 0 && (f.dataSrc.Level != ds.Level || f.dataSrc.Miss != ds.Miss) {
+				continue
+			}
+			if f.dataSrc.Snoop != 0 && f.dataSrc.Snoop != ds.Snoop {
+				continue
+			}
+			if f.dataSrc.Locked != 0 && f.dataSrc.Locked != ds.Locked {
+				continue
+			}
+			if f.dataSrc.TLB != 0 && f.dataSrc.TLB != ds.TLB {
+				continue
+			}
+
+		good:
 			cb(proc, rec)
 		}
 	}
