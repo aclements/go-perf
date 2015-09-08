@@ -5,24 +5,46 @@
 // Command memlat is a web-based interactive browser for memory
 // latency profiles.
 //
-// Intel CPUs starting with Nehalem support detailed hardware
+// Starting with Nehalem, Intel CPUs have supported detailed hardware
 // profiling of memory load operations and, in particular, load
 // latency. Sandy Bridge introduced further support for profiling
 // memory store operations. Memory stalls and conflicts are
-// increasingly impacting software performance and these profiles can
-// give incredible insight into these problems. However, the richness
-// of these profiles make them difficult to interpret using
-// traditional profiling tools and techniques.
+// increasingly important for software performance and these profiles
+// can give deep insight into these problems. However, the richness of
+// these profiles make them difficult to interpret using traditional
+// profiling tools and techniques.
 //
 // memlat is a profile browser built for understanding and
 // interpreting memory latency profiles. The central concept is a
-// latency distribution, which indicates how many cycles are spent in
-// memory operations according to the latency of those operations. For
+// "latency distribution", which is a statistical distribution of the
+// number of cycles spent in memory load or store operations. For
 // example, if there are 10 loads that take 10 cycles and 2 loads that
 // takes 100 cycles, the latency distribution consists of a 100 cycle
 // spike at 10 cycles and a 200 cycle spike at 100 cycles. The total
 // weight of this distribution accounts for the total cycles spent
-// waiting on memory loads.
+// waiting on memory loads or stores.
+//
+// memlat presents a profile as a multidimensional latency
+// distribution and provides a tools for viewing and filtering this
+// distribution on each dimension, such as by function, by source
+// line, by data source (L1 hit, TLB miss, etc), by address, etc. Each
+// tab in the UI browses the profile on a different dimension and
+// clicking on a row filters the profile down to just that function,
+// source line, etc. An active filters can be removed by clicking on
+// it in the filter bar at the top.
+//
+// For example, suppose we want to understand the primary source of
+// memory latency in a profile. Select the "By source line" tab and
+// click on the top row to filter to the source line that contributed
+// the most total memory latency. You can select the "Source
+// annotation" tab to see the text of this line. To drill down to a
+// particular memory address, select the "By address" tab to see the
+// memory addresses touched by this source line. Click the top one to
+// further filter to the hottest address touched by this source line.
+// Then, click the source line filter in the filter bar at the top to
+// remove the source line filter. Finally, select the "Source
+// annotation" tab to see the other source code lines that touch this
+// hot address.
 //
 // To download and install memlat, run
 //
@@ -42,8 +64,6 @@
 //
 // memlat will parse and symbolize the profile and start a web server
 // listening by default on localhost;8001.
-//
-// TODO: Document the user interface once it's settled.
 package main
 
 import (
