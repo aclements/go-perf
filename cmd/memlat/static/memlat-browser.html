@@ -324,7 +324,7 @@
         <paper-tab name="pid">By process</paper-tab>
       </paper-tabs>
       <div class="card-content">
-        <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}" enabled="{{_getEnabled(groupBy, _legal)}}"></memlat-query-table>
+        <memlat-query-table filter="{{_filter}}" group-by="{{groupBy}}"></memlat-query-table>
       </div>
     </paper-card>
   </template>
@@ -362,9 +362,6 @@
           address: !filter.address,
           pid: !filter.pid,
         };
-      },
-      _getEnabled: function(groupBy, legal) {
-        return legal[groupBy];
       },
       _legalChanged: function(newLegal, oldLegal) {
         // Compute the best legal groupBy.
@@ -495,7 +492,6 @@
         groupBy: String,
         filter: Object,
         _reply: Object,
-        enabled: Boolean,
       },
       ready: function() {
         window.addEventListener('scroll', this._updateHeader.bind(this));
@@ -546,9 +542,6 @@
         return Memlat.filterToLabel(hist);
       },
       _rowClicked: function(ev) {
-        if (!this.enabled)
-          return;
-
         var hist = ev.model.get('item');
 
         // Create the filter from hist's properties.
@@ -558,6 +551,10 @@
           if (hist.hasOwnProperty(fprops[i])) {
             filter[fprops[i]] = hist[fprops[i]];
             anyProps = true;
+            // If we're already filtering on this property, don't
+            // filter again.
+            if (this.filter.hasOwnProperty(fprops[i]))
+              return;
           }
         }
         // If this is an [all] result, there isn't anything to filter on.
