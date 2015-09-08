@@ -22,8 +22,6 @@
 <link rel="import"
       href="bower_components/paper-tabs/paper-tabs.html">
 
-<!-- TODO: UI for showing summaries by data source -->
-
 <!-- TODO: Animate adding/removing filter to make the change clearer -->
 
 <!-- TODO: Option to expand data address filter to all addresses on --
@@ -51,8 +49,8 @@
       return trimFile(filter.fileName);
     if (filter.address)
       return '0x' + filter.address.toString(16);
-    if (filter.text)
-      return filter.text;
+    if (filter.dataSrcLabel)
+      return filter.dataSrcLabel;
     return '[all]';
   };
 </script>
@@ -558,7 +556,8 @@
 
         // Create the filter from hist's properties.
         var filter = {}, anyProps = false;
-        var fprops = ['pid', 'comm', 'funcName', 'fileName', 'line', 'address'];
+        var fprops = ['pid', 'comm', 'funcName', 'fileName', 'line', 'address',
+                      'op', 'miss', 'level', 'snoop', 'locked', 'tlb'];
         for (var i = 0; i < fprops.length; i++) {
           if (hist.hasOwnProperty(fprops[i])) {
             filter[fprops[i]] = hist[fprops[i]];
@@ -572,6 +571,11 @@
         // If this is an [all] result, there isn't anything to filter on.
         if (!anyProps)
           return;
+
+        // The client side can't format data sources, so keep the
+        // server-provided label in the filter.
+        if (hist.hasOwnProperty('dataSrcLabel'))
+          filter.dataSrcLabel = hist.dataSrcLabel;
 
         this.fire('select', filter);
       },

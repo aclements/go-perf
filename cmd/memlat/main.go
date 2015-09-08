@@ -134,6 +134,14 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		fileName: qs.Get("fileName"),
 		line:     atoi(qs.Get("line")),
 		address:  uint64(atoi(qs.Get("address"))),
+		dataSrc: perffile.DataSrc{
+			Op:     perffile.DataSrcOp(atoi(qs.Get("op"))),
+			Miss:   qs.Get("miss") == "miss",
+			Level:  perffile.DataSrcLevel(atoi(qs.Get("level"))),
+			Snoop:  perffile.DataSrcSnoop(atoi(qs.Get("snoop"))),
+			Locked: perffile.DataSrcLock(atoi(qs.Get("locked"))),
+			TLB:    perffile.DataSrcTLB(atoi(qs.Get("tlb"))),
+		},
 	}
 	groupBy := qs.Get("groupBy")
 	limit := atoi(qs.Get("limit"))
@@ -240,7 +248,13 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if !ok {
 				hist = newHist()
 				hist.group = group
-				hist.Text = label
+				hist.Op = key.Op
+				hist.Miss = key.Miss
+				hist.Level = key.Level
+				hist.Snoop = key.Snoop
+				hist.Locked = key.Locked
+				hist.TLB = key.TLB
+				hist.DataSrcLabel = label
 				groups[key] = hist
 			}
 			hist.update(r)
@@ -401,21 +415,36 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 const latencyHistogramBins = 60
 
+// TODO: There's a lot of code for transforming between filters in the
+// query string, latencyHistogram, and the filter struct. Unify these
+// better.
+
 type latencyHistogram struct {
 	scale  scale.Quantitative
 	Bins   []int `json:",omitempty"`
 	weight int
 	group  string
 
+	// Filter specification.
 	PID      int    `json:"pid,omitempty"`
 	Comm     string `json:"comm,omitempty"`
 	FuncName string `json:"funcName,omitempty"`
 	FileName string `json:"fileName,omitempty"`
 	Line     int    `json:"line,omitempty"`
 	Address  uint64 `json:"address,omitempty"`
-	Text     string `json:"text,omitempty"`
 
-	IsHeader bool `json:"isHeader,omitempty"`
+	// Data source filter specification.
+	Op     perffile.DataSrcOp    `json:"op,omitempty"`
+	Miss   bool                  `json:"miss,omitempty"`
+	Level  perffile.DataSrcLevel `json:"level,omitempty"`
+	Snoop  perffile.DataSrcSnoop `json:"snoop,omitempty"`
+	Locked perffile.DataSrcLock  `json:"locked,omitempty"`
+	TLB    perffile.DataSrcTLB   `json:"tlb,omitempty"`
+
+	// Presentation.
+	Text         string `json:"text,omitempty"`
+	DataSrcLabel string `json:"dataSrcLabel,omitempty"`
+	IsHeader     bool   `json:"isHeader,omitempty"`
 }
 
 func newLatencyHistogram(scale scale.Quantitative) *latencyHistogram {
