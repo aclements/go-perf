@@ -389,6 +389,10 @@
 <dom-module id="memlat-query-table">
   <!-- UI for displaying a table of latency histograms. -->
 
+  <!-- TODO: There are lots of annoying if's in this for source
+    -- annotation mode. Abstract this better so we can just use a
+    -- different tag for annotation mode without lots of duplication. -->
+
   <style>
     table {
       table-layout: fixed;
@@ -461,7 +465,12 @@
       <tbody>
         <template is="dom-repeat" items="{{_reply.Histograms}}">
           <template is="dom-if" if="{{item.isHeader}}" restamp="true">
-            <tr><th colspan="3">{{item.text}}</th></tr>
+            <template is="dom-if" if="{{_isAnnotation(groupBy)}}" restamp="true">
+              <tr><th colspan="3">{{item.text}}</th></tr>
+            </template>
+            <template is="dom-if" if="{{!_isAnnotation(groupBy)}}" restamp="true">
+              <tr><th colspan="2">{{item.text}}</th></tr>
+            </template>
           </template>
           <template is="dom-if" if="{{!item.isHeader}}" restamp="true">
             <tr on-click="_rowClicked">
