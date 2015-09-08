@@ -29,8 +29,6 @@
 <!-- TODO: Option to expand data address filter to all addresses on --
   -- cache line or pair of cache lines. -->
 
-<!-- TODO: Keep scale visible or draw grid lines or something. -->
-
 <script>
   var Memlat = {};
 
@@ -420,6 +418,13 @@
     td.line:before {
       content: attr(data-line);
     }
+    #thead-fixed {
+        background: rgba(255,255,255,0.8);
+    }
+    td, th {
+        /* Make is easy to use getBoundingClientRect as width/height */
+        box-sizing: border-box;
+    }
   </style>
 
   <template>
@@ -431,7 +436,15 @@
         </template>
         <col></col><col width="620px"></col>
       </colgroup>
-      <thead>
+      <thead id="thead-spacer">
+        <tr>
+          <template is="dom-if" if="{{_isAnnotation(groupBy)}}" restamp="true">
+            <td></td>
+          </template>
+          <td></td><td></td>
+        </tr>
+      </thead>
+      <thead id="thead-fixed">
         <tr>
           <template is="dom-if" if="{{_isAnnotation(groupBy)}}" restamp="true">
             <td></td>
@@ -483,6 +496,44 @@
         filter: Object,
         _reply: Object,
         enabled: Boolean,
+      },
+      ready: function() {
+        window.addEventListener('scroll', this._updateHeader.bind(this));
+        window.addEventListener('resize', this._updateHeader.bind(this));
+      },
+      _updateHeader: function() {
+        var spacer = this.$$('#thead-spacer > tr');
+        var head = this.$$('#thead-fixed');
+
+        // Get the absolute top and bottom of the table
+        var table = this.$$('table');
+        var tableTop = 0;
+        if (table.offsetParent) {
+          var obj = table;
+          do {
+            tableTop += obj.offsetTop;
+          } while (obj = obj.offsetParent);
+        }
+        var tableBot = tableTop + table.getBoundingClientRect().height;
+
+        var headHeight = head.getBoundingClientRect().height;
+        if (tableTop < window.pageYOffset && window.pageYOffset < tableBot - headHeight) {
+          // Fixed header positioning
+          spacer.style.height = headHeight + 'px';
+          head.style.position = 'fixed';
+          head.style.top = '0px';
+        } else {
+          // Standard header positioning
+          spacer.style.height = '';
+          head.style.position = '';
+        }
+
+        // "position: fixed" messes up column widths, so paste them in
+        // from the spacer.
+        var spacerTDs = spacer.querySelectorAll('td');
+        var headTDs = head.querySelectorAll('td');
+        for (var i = 0; i < spacerTDs.length; i++)
+          headTDs[i].style.width = spacerTDs[i].getBoundingClientRect().width + 'px';
       },
       _getQueryParams: function(filter, groupBy) {
         var params = {groupBy: groupBy, limit: groupBy == 'annotation' ? 3 : 100};
