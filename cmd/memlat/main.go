@@ -2,20 +2,17 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Command memlat is a web-based interactive browser for memory
+// Command memlat is a web-based interactive browser for memory load
 // latency profiles.
 //
-// Starting with Nehalem, Intel CPUs have supported detailed hardware
-// profiling of memory load operations and, in particular, load
-// latency. Sandy Bridge introduced further support for profiling
-// memory store operations. Memory stalls and conflicts are
-// increasingly important for software performance and these profiles
-// can give deep insight into these problems. However, the richness of
-// these profiles make them difficult to interpret using traditional
-// profiling tools and techniques.
+// Memory stalls and conflicts are increasingly important for software
+// performance. Memory load latency profiles can give deep insights in
+// to these problems; however, the richness of these profiles makes
+// them difficult to interpret using traditional profiling tools and
+// techniques.
 //
 // memlat is a profile browser built for understanding and
-// interpreting memory latency profiles. The central concept is a
+// interpreting memory load latency profiles. The central concept is a
 // "latency distribution", which is a statistical distribution of the
 // number of cycles spent in memory load or store operations. For
 // example, if there are 10 loads that take 10 cycles and 2 loads that
@@ -50,9 +47,10 @@
 //
 //    go get github.com/aclements/go-perf/cmd/memlat
 //
-// memlat works with the standard memory latency profiles recorded by
-// the Linux perf tool. To record a memory latency profile, use perf's
-// "mem" subcommand. For example,
+// memlat works with the memory load latency profiles recorded by the
+// Linux perf tool. This requires hardware support that has been
+// available since Intel Nehalem. To record a memory latency profile,
+// use perf's "mem" subcommand. For example,
 //
 //    perf mem record <command>  # Record a memory profile for command
 //    perf mem record -a         # Record a system-wide memory profile
