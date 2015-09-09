@@ -43,6 +43,8 @@
 // annotation" tab to see the other source code lines that touch this
 // hot address.
 //
+// Usage
+//
 // To download and install memlat, run
 //
 //    go get github.com/aclements/go-perf/cmd/memlat
