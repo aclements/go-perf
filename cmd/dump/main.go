@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Command dump prints the raw contents of a perf.data profile to
+// stdout.
 package main
 
 import (
