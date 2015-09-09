@@ -11,6 +11,7 @@ import (
 )
 
 // A Records is an iterator over the records in a "perf.data" file.
+// Each record will be one of the Record* types.
 //
 // Typical usage is
 //    rs := file.Records()
@@ -22,6 +23,11 @@ import (
 //    }
 //    if rs.Err() { ... }
 type Records struct {
+	// The current record. The concrete type of this will be one
+	// of the Record* types. Determine which type of record this
+	// is using a type switch.
+	Record Record
+
 	f   *File
 	sr  *bufferedSectionReader // or *io.SectionReader
 	err error
@@ -30,10 +36,6 @@ type Records struct {
 	// records are read in file order until EOF. If non-nil,
 	// records are read in this order.
 	order []int64
-
-	// The current record.  Determine which type of record this is
-	// using a type switch.
-	Record Record
 
 	// Read buffer.  Reused (and resized) by Next.
 	buf []byte

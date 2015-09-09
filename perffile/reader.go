@@ -15,6 +15,9 @@ import (
 
 // TODO: Type for file format errors.
 
+// A File is a perf.data file. It consists of a sequence of records,
+// which can be retrieved with the Records method, as well as several
+// optional metadata fields.
 type File struct {
 	r      io.ReaderAt
 	closer io.Closer
@@ -472,11 +475,17 @@ const (
 	// not distinguish.
 	RecordsCausalOrder
 
-	// RecordsTimeOrder requests records in time-stamp order.
+	// RecordsTimeOrder requests records in time-stamp order. This
+	// is the most expensive iteration order because it requires
+	// buffering and/or re-reading potentially large sections of
+	// the input file in order to sort the records.
 	RecordsTimeOrder
 )
 
-// Records returns an iterator over the records in the profile.
+// Records returns an iterator over the records in the profile. The
+// order argument specifies the order for iterating through the
+// records in this File. Callers should choose the least
+// resource-intensive iteration order that satisfies their needs.
 func (f *File) Records(order RecordsOrder) *Records {
 	if order == RecordsCausalOrder || order == RecordsTimeOrder {
 		// Sort the records by making two passes: first record
