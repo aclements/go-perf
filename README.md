@@ -1,16 +1,40 @@
-go-perf is a collection of Go packages for parsing and making use of
-Linux perf.data profiles.
+go-perf is a set of tools for working with Linux perf.data profiles,
+as well as a set of Go packages for parsing and interpreting such
+profiles.
+
+memlat
+------
+
+memlat is a web-based interactive browser for memory load latency
+profiles. Such profiles give deep and detailed insight in to the
+sources of memory stalls and conflicts, but are difficult to interpret
+using traditional profiling tools. See the
+[detailed documentation on godoc](http://godoc.org/github.com/aclements/go-perf/cmd/memlat).
+
+There is also a predecessor of memlat in `cmd/memheat`. This tool
+generates static SVG files summarizing memory load latency
+distributions by function and source line. This may be removed in the
+future.
+
+dump
+----
+
+dump prints the detailed decoded contents of a perf.data profile. It's
+similar to `perf report -D`, but is somewhat less mysterious. It's
+particularly useful when developing with the perffile library because
+it prints everything in terms of perffile structures.
 
 Libraries
-* perffile is a parser for perf.data files.
-* perfsession provides utilities for tracking system state while
-  processing a perf.data file.
+---------
 
-Tools
-* cmd/dump is a simple tool that reads a perf.data file and prints its
-  raw records.
-* cmd/memlat is an interactive web-based browser for memory latency
-  profiles recorded by "perf mem record".
-* cmd/memheat is a non-interactive viewer for memory latency profiles
-  recorded by "perf mem record". It produces an SVG of the memory
-  latency distributions on every instruction and source line.
+This repository also contains two Go packages for parsing and
+interpreting perf.data files.
+
+[perffile](http://godoc.org/github.com/aclements/go-perf/perffile)
+provides a parser for perf.data files. It can interpret all current
+record types and almost all metadata fields.
+
+[perfsession](http://godoc.org/github.com/aclements/go-perf/perfsession)
+provides utilities for tracking session state while processing a
+perf.data file. Its API is still evolving and should be considered
+unstable.
