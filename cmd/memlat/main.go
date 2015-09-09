@@ -103,16 +103,21 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+	if *flagDocRoot == "" && staticFiles == nil {
+		// No baked-in static file system.
+		*flagDocRoot = "static"
+		fi, err := os.Stat(*flagDocRoot)
+		if err != nil || !fi.IsDir() {
+			fmt.Fprintln(os.Stderr, "static assets not found; please specify -docroot")
+			os.Exit(1)
+		}
+	}
 
 	fmt.Fprintln(os.Stderr, "loading profile...")
 	db := parsePerf(*flagInput)
 	fmt.Fprintln(os.Stderr, "profile loaded")
 
 	mux := http.NewServeMux()
-	if *flagDocRoot == "" && staticFiles == nil {
-		// No baked-in static file system.
-		*flagDocRoot = "static"
-	}
 	if *flagDocRoot == "" {
 		mux.Handle("/", http.FileServer(staticFiles))
 	} else {
