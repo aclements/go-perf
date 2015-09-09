@@ -6,6 +6,8 @@ package perfsession
 
 import "github.com/aclements/go-perf/perffile"
 
+// TODO: Per-TID state.
+
 type Session struct {
 	kernel  *PIDInfo
 	pidInfo map[int]*PIDInfo
