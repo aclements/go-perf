@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/aclements/go-perf/perffile"
@@ -66,8 +65,13 @@ type Metadata struct {
 // parsePerf parses a perf.data profile into a database.
 func parsePerf(fileName string) *database {
 	f, err := perffile.Open(fileName)
-	if err != nil {
-		log.Fatalf("error loading profile %s: %s", fileName, err)
+	if os.IsNotExist(err) && fileName == "perf.data" {
+		// Give a friendly error for first-time users.
+		fmt.Fprintf(os.Stderr, "%s.\nTo record a profile, use\n  perf mem record <command>\nor specify an alternate profile path with -i.\n", err)
+		os.Exit(1)
+	} else if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading profile: %s\n", err)
+		os.Exit(1)
 	}
 	defer f.Close()
 
@@ -172,7 +176,7 @@ func parsePerf(fileName string) *database {
 	}
 
 	if numSamples == 0 {
-		fmt.Printf("no memory latency samples in %s (did you use \"perf mem record\"?\n", fileName)
+		fmt.Printf("no memory latency samples in %s (did you use \"perf mem record\"?)\n", fileName)
 		os.Exit(1)
 	}
 	if droppedMmaps > 0 {
