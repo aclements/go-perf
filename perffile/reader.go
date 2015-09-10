@@ -58,7 +58,7 @@ func New(r io.ReaderAt) (*File, error) {
 	}
 	// TODO: perf supports attrSize 64, 72, 80, and 96 for compatibility
 	if file.hdr.AttrSize != uint64(binary.Size(&fileAttr{})) {
-		return nil, fmt.Errorf("bad attr size %d", file.hdr.AttrSize)
+		return nil, fmt.Errorf("bad file attr size %d", file.hdr.AttrSize)
 	}
 
 	// hdr.Data.Size is the last thing written out by perf, so if
@@ -75,7 +75,7 @@ func New(r io.ReaderAt) (*File, error) {
 	attrSize := uint32(binary.Size(&EventAttr{}))
 	for _, attr := range file.attrs {
 		if attr.Attr.Size != attrSize {
-			return nil, fmt.Errorf("bad attr size %d", attr.Attr.Size)
+			return nil, fmt.Errorf("bad event attr size %d", attr.Attr.Size)
 		}
 	}
 
