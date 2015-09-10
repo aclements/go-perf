@@ -66,10 +66,6 @@ func New(r io.ReaderAt) (*File, error) {
 	if file.hdr.Size != uint64(binary.Size(&file.hdr)) {
 		return nil, fmt.Errorf("bad header size %d", file.hdr.Size)
 	}
-	// TODO: perf supports attrSize 64, 72, 80, and 96 for compatibility
-	if file.hdr.AttrSize != uint64(binary.Size(&fileAttr{})) {
-		return nil, fmt.Errorf("bad file attr size %d", file.hdr.AttrSize)
-	}
 
 	// hdr.Data.Size is the last thing written out by perf, so if
 	// it's zero, we're working with a partial file.
@@ -77,15 +73,21 @@ func New(r io.ReaderAt) (*File, error) {
 		return nil, fmt.Errorf("truncated data file; was 'perf record' properly terminated?")
 	}
 
-	// Read EventAttrs
-	if err := readSlice(file.hdr.Attrs.sectionReader(r), &file.attrs); err != nil {
-		return nil, err
+	// Read EventAttrs. Note that the attr size is represented in
+	// both the file header and in each individual attr, but perf
+	// doesn't validate the file-level attr size.
+	if file.hdr.AttrSize == 0 {
+		return nil, fmt.Errorf("bad attr size 0")
 	}
-	// Check EventAttr sizes
-	attrSize := uint32(binary.Size(&EventAttr{}))
-	for _, attr := range file.attrs {
-		if attr.Attr.Size != attrSize {
-			return nil, fmt.Errorf("bad event attr size %d", attr.Attr.Size)
+	nAttrs := int(file.hdr.Attrs.Size / file.hdr.AttrSize)
+	if nAttrs > 64*1024 {
+		return nil, fmt.Errorf("too many attrs or bad attr size")
+	}
+	file.attrs = make([]fileAttr, nAttrs)
+	attrSR := file.hdr.Attrs.sectionReader(r)
+	for i := 0; i < nAttrs; i++ {
+		if err := readFileAttr(attrSR, &file.attrs[i]); err != nil {
+			return nil, err
 		}
 	}
 
@@ -178,6 +180,56 @@ func Open(name string) (*File, error) {
 	}
 	ff.closer = f
 	return ff, nil
+}
+
+func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
+	// See read_attr in tools/perf/util/header.c.
+
+	// Read the common prefix of all event attr versions.
+	var attr eventAttrVN
+	if err := binary.Read(sr, binary.LittleEndian, &attr.eventAttrV0); err != nil {
+		return err
+	}
+	if attr.Size == 0 {
+		// Assume ABI v0
+		attr.Size = 64
+	} else if attr.Size > uint32(binary.Size(&attr)) {
+		return fmt.Errorf("event attr size %d too large; more recent and unsupported format", attr.Size)
+	} else {
+		// Read whatever's left. There are specific versions
+		// of this structure, but perf doesn't try to
+		// distinguish them, so neither do we.
+		left := int(attr.Size) - binary.Size(&attr.eventAttrV0)
+		rattr := reflect.ValueOf(&attr).Elem()
+		for i := 1; i < rattr.NumField() && left > 0; i++ {
+			field := rattr.Field(i).Addr().Interface()
+			err := binary.Read(sr, binary.LittleEndian, field)
+			if err != nil {
+				return err
+			}
+			left -= binary.Size(field)
+		}
+	}
+
+	// Convert on-disk perf_event_attr in to EventAttr.
+	//
+	// TODO: Split out fields that are shared on disk in the EventAttr.
+	fa.Attr.Type = attr.Type
+	fa.Attr.Size = attr.Size
+	fa.Attr.Config = attr.Config
+	fa.Attr.SamplePeriodOrFreq = attr.SamplePeriodOrFreq
+	fa.Attr.SampleFormat = attr.SampleFormat
+	fa.Attr.ReadFormat = attr.ReadFormat
+	fa.Attr.Flags = attr.Flags
+	fa.Attr.WakeupEventsOrWatermark = attr.WakeupEventsOrWatermark
+	fa.Attr.BPType = attr.BPType
+	fa.Attr.BPAddrOrConfig1 = attr.BPAddrOrConfig1
+	fa.Attr.BPLenOrConfig2 = attr.BPLenOrConfig2
+	fa.Attr.SampleRegsUser = attr.SampleRegsUser
+	fa.Attr.SampleStackUser = attr.SampleStackUser
+
+	// Finally, read IDs fileSection, which follows the eventAttr.
+	return binary.Read(sr, binary.LittleEndian, &fa.IDs)
 }
 
 // Close closes the File.

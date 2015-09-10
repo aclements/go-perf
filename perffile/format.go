@@ -76,11 +76,41 @@ type fileAttr struct {
 	IDs  fileSection // array of attrID, one per core/thread
 }
 
+// eventAttrV0 is on-disk version 0 of the perf_event_attr structure.
+// Later versions extended this with additional fields, but the header
+// is always the same.
+type eventAttrV0 struct {
+	Type                    EventClass
+	Size                    uint32
+	Config                  uint64
+	SamplePeriodOrFreq      uint64
+	SampleFormat            SampleFormat
+	ReadFormat              ReadFormat
+	Flags                   EventFlags
+	WakeupEventsOrWatermark uint32
+	BPType                  uint32
+	BPAddrOrConfig1         uint64
+}
+
+// eventAttrVN is the on-disk latest version of the perf_event_attr
+// structure (currently version 3).
+type eventAttrVN struct {
+	eventAttrV0
+
+	// ABI v1
+	BPLenOrConfig2 uint64
+
+	// ABI v2
+	BranchSampleType uint64
+
+	// ABI v3
+	SampleRegsUser  uint64
+	SampleStackUser uint32
+	Pad1            uint32 // Align to uint64
+}
+
 // TODO: Make public
 type attrID uint64
-
-// TODO: Consider separating on-disk perf_event_attr structure from
-// structure exposed to user (or deserialize it manually).
 
 // EventAttr describes an event that is recorded in a perf.data file.
 //
@@ -119,9 +149,6 @@ type EventAttr struct {
 
 	// Size of user stack to dump on samples
 	SampleStackUser uint32
-
-	// Align to uint64
-	_ uint32
 }
 
 // perf_type_id from include/uapi/linux/perf_event.h
