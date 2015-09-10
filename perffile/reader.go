@@ -74,7 +74,7 @@ func New(r io.ReaderAt) (*File, error) {
 	// hdr.Data.Size is the last thing written out by perf, so if
 	// it's zero, we're working with a partial file.
 	if file.hdr.Data.Size == 0 {
-		return nil, fmt.Errorf("truncated data file")
+		return nil, fmt.Errorf("truncated data file; was 'perf record' properly terminated?")
 	}
 
 	// Read EventAttrs
