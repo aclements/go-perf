@@ -44,13 +44,23 @@ func New(r io.ReaderAt) (*File, error) {
 	// See perf_session__read_header in tools/perf/util/header.c
 
 	// Read header
-	//
-	// TODO: Support big endian
 	sr := io.NewSectionReader(r, 0, 1024)
 	if err := binary.Read(sr, binary.LittleEndian, &file.hdr); err != nil {
 		return nil, err
 	}
-	if string(file.hdr.Magic[:]) != "PERFILE2" {
+	switch string(file.hdr.Magic[:]) {
+	case "PERFILE2":
+		// Version 2, little endian.
+		break
+	case "2ELIFREP":
+		// Version 2, big endian.
+		//
+		// TODO: Support big endian profiles.
+		return nil, fmt.Errorf("big endian profiles not supported")
+	case "PERFFILE":
+		// Version 1 file.
+		return nil, fmt.Errorf("version 1 profiles not supported")
+	default:
 		return nil, fmt.Errorf("bad or unsupported file magic %q", string(file.hdr.Magic[:]))
 	}
 	if file.hdr.Size != uint64(binary.Size(&file.hdr)) {
