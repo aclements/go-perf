@@ -457,8 +457,8 @@ func (r *RecordUnknown) Type() RecordType {
 	return RecordType(r.recordHeader.Type)
 }
 
-// A RecordMMap records when a process being profiled called mmap.
-// RecordMMaps can also occur at the beginning of a profile to
+// A RecordMmap records when a process being profiled called mmap.
+// RecordMmaps can also occur at the beginning of a profile to
 // describe the existing memory layout.
 type RecordMmap struct {
 	// RecordCommon.PID and .TID will always be filled
