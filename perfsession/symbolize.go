@@ -126,6 +126,8 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 	}
 	defer elff.Close()
 
+	extra := &symbolicExtra{}
+
 	// Load DWARF
 	//
 	// TODO: Support build IDs and debug links
@@ -137,6 +139,9 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 			return nil, fmt.Errorf("error loading DWARF from %s: %s", filename, err)
 		}
 
+		extra.functab = dwarfFuncTable(dwarff)
+		extra.linetab = dwarfLineTable(dwarff)
+
 		return &symbolicExtra{
 			dwarfFuncTable(dwarff),
 			dwarfLineTable(dwarff),
@@ -144,9 +149,12 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 		}, nil
 	}
 
-	// Make do with the ELF symbols.
-	funcTable, isReloc := elfFuncTable(filename, elff)
-	return &symbolicExtra{funcTable, nil, isReloc}, nil
+	if extra.functab == nil {
+		// Make do with the ELF symbols.
+		extra.functab, extra.isReloc = elfFuncTable(filename, elff)
+	}
+
+	return extra, nil
 }
 
 var kallsymsRe = regexp.MustCompile("^([0-9a-fA-F]*) +(.) (.*)")
@@ -271,6 +279,9 @@ func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
 
 	sort.Sort(funcRangeSorter(out))
 
+	if len(out) == 0 {
+		return nil
+	}
 	return out
 }
 
