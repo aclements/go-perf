@@ -231,7 +231,7 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 		fa.Attr.WakeupWatermark = attr.WakeupEventsOrWatermark
 	}
 	fa.Attr.BPType = attr.BPType
-	if attr.Type == EventClassBreakpoint {
+	if attr.Type == EventTypeBreakpoint {
 		fa.Attr.BPAddr = attr.BPAddrOrConfig1
 		fa.Attr.BPLen = attr.BPLenOrConfig2
 	} else {
@@ -488,7 +488,7 @@ func (f *File) NUMATopology() ([]NUMANode, error) {
 	return out, nil
 }
 
-// PMUMappings returns a map from numerical EventClass to name for
+// PMUMappings returns a map from numerical EventType to name for
 // event classes supported by the machine that recorded this profile,
 // or nil if unknown.
 func (f *File) PMUMappings() (map[int]string, error) {

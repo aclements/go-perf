@@ -80,7 +80,7 @@ type fileAttr struct {
 // Later versions extended this with additional fields, but the header
 // is always the same.
 type eventAttrV0 struct {
-	Type                    EventClass
+	Type                    EventType
 	Size                    uint32
 	Config                  uint64
 	SamplePeriodOrFreq      uint64
@@ -122,7 +122,7 @@ type attrID uint64
 type EventAttr struct {
 	// Type specifies the major type of this event, such as
 	// hardware event, software event, or tracepoint.
-	Type EventClass
+	Type EventType
 
 	// Config gives Type-specific configuration information. In
 	// perf_event_attr, this corresponds to the fields config,
@@ -176,16 +176,16 @@ type EventAttr struct {
 }
 
 // perf_type_id from include/uapi/linux/perf_event.h
-type EventClass uint32
+type EventType uint32
 
-//go:generate stringer -type=EventClass
+//go:generate stringer -type=EventType
 const (
-	EventClassHardware EventClass = iota
-	EventClassSoftware
-	EventClassTracepoint
-	EventClassHWCache
-	EventClassRaw
-	EventClassBreakpoint
+	EventTypeHardware EventType = iota
+	EventTypeSoftware
+	EventTypeTracepoint
+	EventTypeHWCache
+	EventTypeRaw
+	EventTypeBreakpoint
 )
 
 // perf_event_sample_format from include/uapi/linux/perf_event.h
