@@ -491,15 +491,15 @@ func (f *File) NUMATopology() ([]NUMANode, error) {
 // PMUMappings returns a map from numerical EventType to name for
 // event classes supported by the machine that recorded this profile,
 // or nil if unknown.
-func (f *File) PMUMappings() (map[int]string, error) {
+func (f *File) PMUMappings() (map[EventType]string, error) {
 	bd, ok, err := f.featureBuf(featurePMUMappings)
 	if !ok {
 		return nil, err
 	}
 	count := bd.u32()
-	out := map[int]string{}
+	out := map[EventType]string{}
 	for i := uint32(0); i < count; i++ {
-		out[int(bd.u32())] = bd.lenString()
+		out[EventType(bd.u32())] = bd.lenString()
 	}
 	return out, nil
 }
