@@ -215,19 +215,29 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 	}
 
 	// Convert on-disk perf_event_attr in to EventAttr.
-	//
-	// TODO: Split out fields that are shared on disk in the EventAttr.
 	fa.Attr.Type = attr.Type
-	fa.Attr.Size = attr.Size
-	fa.Attr.Config = attr.Config
-	fa.Attr.SamplePeriodOrFreq = attr.SamplePeriodOrFreq
+	fa.Attr.Config[0] = attr.Config
+	if attr.Flags&EventFlagFreq == 0 {
+		fa.Attr.SamplePeriod = attr.SamplePeriodOrFreq
+	} else {
+		fa.Attr.SampleFreq = attr.SamplePeriodOrFreq
+	}
 	fa.Attr.SampleFormat = attr.SampleFormat
 	fa.Attr.ReadFormat = attr.ReadFormat
 	fa.Attr.Flags = attr.Flags
-	fa.Attr.WakeupEventsOrWatermark = attr.WakeupEventsOrWatermark
+	if attr.Flags&EventFlagWakeupWatermark == 0 {
+		fa.Attr.WakeupEvents = attr.WakeupEventsOrWatermark
+	} else {
+		fa.Attr.WakeupWatermark = attr.WakeupEventsOrWatermark
+	}
 	fa.Attr.BPType = attr.BPType
-	fa.Attr.BPAddrOrConfig1 = attr.BPAddrOrConfig1
-	fa.Attr.BPLenOrConfig2 = attr.BPLenOrConfig2
+	if attr.Type == EventClassBreakpoint {
+		fa.Attr.BPAddr = attr.BPAddrOrConfig1
+		fa.Attr.BPLen = attr.BPLenOrConfig2
+	} else {
+		fa.Attr.Config[1] = attr.BPAddrOrConfig1
+		fa.Attr.Config[2] = attr.BPLenOrConfig2
+	}
 	fa.Attr.SampleRegsUser = attr.SampleRegsUser
 	fa.Attr.SampleStackUser = attr.SampleStackUser
 

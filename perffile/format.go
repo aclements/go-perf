@@ -117,18 +117,24 @@ type attrID uint64
 
 // EventAttr describes an event that is recorded in a perf.data file.
 //
-// perf_event_attr from include/uapi/linux/perf_event.h
+// This corresponds to the perf_event_attr struct from
+// include/uapi/linux/perf_event.h
 type EventAttr struct {
-	// Major type: hardware/software/tracepoint/etc
+	// Type specifies the major type of this event, such as
+	// hardware event, software event, or tracepoint.
 	Type EventClass
 
-	// Size of EventAttr structure on disk
-	Size uint32
+	// Config gives Type-specific configuration information. In
+	// perf_event_attr, this corresponds to the fields config,
+	// config1, and config2.
+	Config [3]uint64
 
-	// Type-specific configuration information
-	Config uint64
-
-	SamplePeriodOrFreq uint64
+	// SamplePeriod is the sampling period for this event. Either
+	// this or SampleFreq will be non-zero, depending on
+	// Flags&EventFlagsFreq.
+	SamplePeriod uint64
+	// SampleFreq is the sampling frequency of this event.
+	SampleFreq uint64
 
 	// The format of RecordSamples
 	SampleFormat SampleFormat
@@ -138,14 +144,19 @@ type EventAttr struct {
 
 	Flags EventFlags
 
-	WakeupEventsOrWatermark uint32
+	// WakeupEvents specifies to wake up every WakeupEvents
+	// events. Either this or WakeupWatermark will be non-zero,
+	// depending on Flags&EventFlagWakeupWatermark.
+	WakeupEvents uint32
+	// WakeupWatermark specifies to wake up every WakeupWatermark
+	// bytes.
+	WakeupWatermark uint32
 
-	BPType           uint32
-	BPAddrOrConfig1  uint64
-	BPLenOrConfig2   uint64 // Note: Only if size >= 72
-	BranchSampleType uint64 // Note: Only if size >= 80, TODO: PERF_SAMPLE_BRANCH_*
+	BPType uint32
+	BPAddr uint64
+	BPLen  uint64
 
-	// Note: From here down only if size >= 96
+	BranchSampleType uint64 // TODO: PERF_SAMPLE_BRANCH_*
 
 	// SampleRegsUser is a bitmask of user-space registers
 	// captured at each sample in RecordSample.RegsUser. The
@@ -155,8 +166,6 @@ type EventAttr struct {
 
 	// Size of user stack to dump on samples
 	SampleStackUser uint32
-
-	// Note: From here down only if size >= 104
 
 	// SampleRegsIntr is a bitmask of registers captured at each
 	// sample in RecordSample.RegsIntr. If precise == 0, these
@@ -302,7 +311,7 @@ const (
 	EventFlagEnableOnExec
 	// Trace fork/exit
 	EventFlagTask
-	// WakeupEventsOrWatermark is watermark
+	// WakeupWatermark is set rather than WakeupEvents.
 	EventFlagWakeupWatermark
 
 	// Skip two bits here for EventFlagPreciseIPMask
