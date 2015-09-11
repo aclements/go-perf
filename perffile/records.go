@@ -149,6 +149,13 @@ func (r *Records) Next() bool {
 }
 
 func (r *Records) getAttr(id attrID) *EventAttr {
+	// See perf_evlist__id2evsel in tools/perf/util/evlist.c.
+
+	// If there's only one event, all records implicitly use it.
+	if len(r.f.attrs) == 1 {
+		return &r.f.attrs[0].Attr
+	}
+	// Otherwise, look up the event by ID.
 	if attr, ok := r.f.idToAttr[id]; ok {
 		return attr
 	}

@@ -204,9 +204,12 @@ const (
 	SampleFormatRegsIntr
 )
 
-// sampleIDOffset returns the on-disk byte offset of the ID field of
-// sample records with this sample format.
+// sampleIDOffset returns the byte offset of the ID field within an
+// on-disk sample record with this sample format. If there is no ID
+// field, it returns -1.
 func (s SampleFormat) sampleIDOffset() int {
+	// See __perf_evsel__calc_id_pos in tools/perf/util/evsel.c.
+
 	if s&SampleFormatIdentifier != 0 {
 		return 0
 	}
@@ -230,9 +233,12 @@ func (s SampleFormat) sampleIDOffset() int {
 	return off
 }
 
-// recordIDOffset returns the on-disk byte offset of the ID field of
-// non-sample records relative to the end of the sample.
+// recordIDOffset returns the byte offset of the ID field of
+// non-sample records relative to the end of the on-disk sample. If
+// there is no ID field, it returns -1.
 func (s SampleFormat) recordIDOffset() int {
+	// See __perf_evsel__calc_is_pos in tools/perf/util/evsel.c.
+
 	if s&SampleFormatIdentifier != 0 {
 		return -8
 	}

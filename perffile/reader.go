@@ -39,11 +39,13 @@ type File struct {
 // The caller must keep r open as long as it is using the returned
 // *File.
 func New(r io.ReaderAt) (*File, error) {
+	// See perf_session__open in tools/perf/util/session.c.
 	file := &File{r: r}
 
+	// Read and process the file header.
+	//
 	// See perf_session__read_header in tools/perf/util/header.c
 
-	// Read header
 	sr := io.NewSectionReader(r, 0, 1024)
 	if err := binary.Read(sr, binary.LittleEndian, &file.hdr); err != nil {
 		return nil, err
@@ -80,7 +82,9 @@ func New(r io.ReaderAt) (*File, error) {
 		return nil, fmt.Errorf("bad attr size 0")
 	}
 	nAttrs := int(file.hdr.Attrs.Size / file.hdr.AttrSize)
-	if nAttrs > 64*1024 {
+	if nAttrs == 0 {
+		return nil, fmt.Errorf("no event types")
+	} else if nAttrs > 64*1024 {
 		return nil, fmt.Errorf("too many attrs or bad attr size")
 	}
 	file.attrs = make([]fileAttr, nAttrs)
@@ -103,47 +107,46 @@ func New(r io.ReaderAt) (*File, error) {
 		}
 	}
 
-	// If there's just one event, samples may implicitly refer to
-	// that event, in which case there may be no IDs.  Create a
-	// synthetic ID of 0.
-	if len(file.idToAttr) == 0 {
-		if len(file.attrs) > 1 {
+	// Check that sample formats are consistent across all event
+	// types and record cross-event sample format information.
+	firstEvent := &file.attrs[0].Attr
+	file.sampleIDOffset = firstEvent.SampleFormat.sampleIDOffset()
+	file.recordIDOffset = firstEvent.SampleFormat.recordIDOffset()
+	file.sampleIDAll = firstEvent.Flags&EventFlagSampleIDAll != 0
+	if len(file.attrs) > 1 {
+		if len(file.idToAttr) == 0 {
 			return nil, fmt.Errorf("file has multiple EventAttrs, but no IDs")
 		}
-		if file.attrs[0].Attr.SampleFormat&(SampleFormatID|SampleFormatIdentifier) != 0 {
-			return nil, fmt.Errorf("sample format has IDs, but events don't have IDs")
-		}
-		file.idToAttr[0] = &file.attrs[0].Attr
-		file.sampleIDOffset = -1
-		file.sampleIDAll = file.attrs[0].Attr.Flags&EventFlagSampleIDAll != 0
-		file.recordIDOffset = -1
-	} else {
-		// Compute offset of AttrID fields
-		file.sampleIDOffset = -1
-		file.sampleIDAll = true
-		file.recordIDOffset = -1
 		for _, attr := range file.attrs {
+			// See perf_evlist__valid_sample_type.
 			x := attr.Attr.SampleFormat.sampleIDOffset()
 			if x == -1 {
-				return nil, fmt.Errorf("events have no ID field")
-			} else if file.sampleIDOffset == -1 {
-				file.sampleIDOffset = x
+				return nil, fmt.Errorf("multiple events, but samples have no event ID field")
 			} else if file.sampleIDOffset != x {
 				return nil, fmt.Errorf("events have incompatible ID offsets %d and %d", file.sampleIDOffset, x)
 			}
 
-			if attr.Attr.Flags&EventFlagSampleIDAll == 0 {
-				file.sampleIDAll = false
-				continue
-			}
 			x = attr.Attr.SampleFormat.recordIDOffset()
 			if x == -1 {
-				return nil, fmt.Errorf("records have no ID field")
-			} else if file.recordIDOffset == -1 {
-				file.recordIDOffset = x
+				return nil, fmt.Errorf("multiple events, but records have no event ID field")
 			} else if file.recordIDOffset != x {
 				return nil, fmt.Errorf("records have incompatible ID offsets %d and %d", file.recordIDOffset, x)
 			}
+
+			// See perf_evlist__valid_sample_id_all.
+			idAll := attr.Attr.Flags&EventFlagSampleIDAll != 0
+			if file.sampleIDAll != idAll {
+				return nil, fmt.Errorf("events have incompatible SampleIDAll flags")
+			}
+
+			// See perf_evlist__valid_read_format.
+			if firstEvent.ReadFormat != attr.Attr.ReadFormat {
+				return nil, fmt.Errorf("events have incompatible read formats")
+			}
+		}
+		if firstEvent.SampleFormat&SampleFormatRead != 0 &&
+			firstEvent.ReadFormat&ReadFormatID == 0 {
+			return nil, fmt.Errorf("bad event read format")
 		}
 	}
 
