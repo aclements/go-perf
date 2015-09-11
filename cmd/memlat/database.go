@@ -78,10 +78,10 @@ func parsePerf(fileName string) *database {
 	db := &database{
 		procs: make(map[int]*proc),
 	}
-	db.metadata.Hostname, _ = f.Hostname()
-	db.metadata.Arch, _ = f.Arch()
-	db.metadata.CPUDesc, _ = f.CPUDesc()
-	db.metadata.CmdLine, _ = f.CmdLine()
+	db.metadata.Hostname = f.Meta.Hostname
+	db.metadata.Arch = f.Meta.Arch
+	db.metadata.CPUDesc = f.Meta.CPUDesc
+	db.metadata.CmdLine = f.Meta.CmdLine
 
 	dataSrc2ID := make(map[perffile.DataSrc]dataSrcID)
 	s := perfsession.New(f)

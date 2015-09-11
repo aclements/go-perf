@@ -57,6 +57,8 @@ var buildIDDir = (func() string {
 })()
 
 func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
+	var err error
+
 	tables, ok := session.Extra[symbolicExtraKey].(map[string]*symbolicExtra)
 	if !ok {
 		tables = make(map[string]*symbolicExtra)
@@ -90,11 +92,7 @@ func getSymbolicExtra(session *Session, filename string) *symbolicExtra {
 	// Try build ID cache first.
 	//
 	// TODO: Cache filename to build ID mapping.
-	bids, err := session.File.BuildIDs()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, bid := range bids {
+	for _, bid := range session.File.Meta.BuildIDs {
 		if bid.Filename == filename {
 			nfilename := fmt.Sprintf("%s/.build-id/%.2s/%s", buildIDDir, bid.BuildID, bid.BuildID.String()[2:])
 			if isKallsyms {
