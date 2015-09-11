@@ -175,10 +175,14 @@ type EventAttr struct {
 	SampleRegsIntr uint64
 }
 
-// perf_type_id from include/uapi/linux/perf_event.h
+// An EventType is a general class of perf event.
+//
+// This corresponds to the perf_type_id enum from
+// include/uapi/linux/perf_event.h
 type EventType uint32
 
 //go:generate stringer -type=EventType
+
 const (
 	EventTypeHardware EventType = iota
 	EventTypeSoftware
@@ -188,7 +192,10 @@ const (
 	EventTypeBreakpoint
 )
 
-// perf_event_sample_format from include/uapi/linux/perf_event.h
+// A SampleFormat is a bitmask of the fields recorded by a sample.
+//
+// This corresponds to the perf_event_sample_format enum from
+// include/uapi/linux/perf_event.h
 type SampleFormat uint64
 
 const (
@@ -272,7 +279,11 @@ func (s SampleFormat) trailerBytes() int {
 	return 8 * weight(uint64(s))
 }
 
-// perf_event_read_format from include/uapi/linux/perf_event.h
+// ReadFormat is a bitmask of the fields recorded in the SampleRead
+// field(s) of a sample.
+//
+// This corresponds to the perf_event_read_format enum from
+// include/uapi/linux/perf_event.h
 type ReadFormat uint64
 
 const (
@@ -282,7 +293,10 @@ const (
 	ReadFormatGroup
 )
 
-// Bitmask in perf_event_attr from include/uapi/linux/perf_event.h
+// EventFlags is a bitmask of boolean properties of an event.
+//
+// This corresponds to the perf_event_attr enum from
+// include/uapi/linux/perf_event.h
 type EventFlags uint64
 
 const (
@@ -348,9 +362,13 @@ type recordHeader struct {
 	Size uint16
 }
 
+// A RecordType indicates the type of a record in a profile. A record
+// can either be a profiling sample or give information about changes
+// to system state, such as a process calling mmap.
 type RecordType uint32
 
 //go:generate stringer -type=RecordType
+
 const (
 	RecordTypeMmap RecordType = 1 + iota
 	RecordTypeLost
@@ -367,13 +385,17 @@ const (
 )
 
 // perf_user_event_type in tools/perf/util/event.h
+//
+// TODO: Figure out what to do with these. Some of these are only to
+// direct parsing so they should never escape the API. Some of these
+// are only for perf.data pipes.
 const (
-	RecordTypeHeaderAttr      RecordType = recordTypeUserStart + iota
+	recordTypeHeaderAttr      RecordType = recordTypeUserStart + iota
 	recordTypeHeaderEventType            // deprecated
-	RecordTypeHeaderTracingData
-	RecordTypeHeaderBuildID
-	RecordTypeHeaderFinishedRound
-	RecordTypeHeaderIDIndex
+	recordTypeHeaderTracingData
+	recordTypeHeaderBuildID
+	recordTypeHeaderFinishedRound
+	recordTypeHeaderIDIndex
 )
 
 // PERF_RECORD_MISC_* from include/uapi/linux/perf_event.h
@@ -386,26 +408,29 @@ const (
 	recordMiscExactIP                = 1 << 14
 )
 
+// Record is the common interface implemented by all profile record
+// types.
 type Record interface {
 	Type() RecordType
 	Common() *RecordCommon
 }
 
 // RecordCommon stores fields that are common to all record types, as
-// well as additional metadata.
+// well as additional metadata. It is not itself a Record.
 //
 // Many fields are optional and their presence is determined by the
-// sample format in the perf.data file.  Some record types guarantee
-// that some of these fields will be filled.
+// bitmask EventAttr.SampleFormat. Some record types guarantee that
+// some of these fields will be filled.
 type RecordCommon struct {
-	// Byte offset of this event in the perf.data file
+	// Offset is the byte offset of this event in the perf.data
+	// file.
 	Offset int64
 
 	// Format is a bit mask of SampleFormat* values that indicate
 	// which optional fields of this record are valid.
 	Format SampleFormat
 
-	// The event, if any, associated with this record.
+	// EventAttr is the event, if any, associated with this record.
 	EventAttr *EventAttr
 
 	PID, TID int    // if SampleFormatTID
@@ -419,7 +444,7 @@ func (r *RecordCommon) Common() *RecordCommon {
 	return r
 }
 
-// Placeholder for unknown or unimplemented record types
+// A RecordUnknown is a Record of unknown or unimplemented type.
 type RecordUnknown struct {
 	recordHeader
 
@@ -432,6 +457,9 @@ func (r *RecordUnknown) Type() RecordType {
 	return RecordType(r.recordHeader.Type)
 }
 
+// A RecordMMap records when a process being profiled called mmap.
+// RecordMMaps can also occur at the beginning of a profile to
+// describe the existing memory layout.
 type RecordMmap struct {
 	// RecordCommon.PID and .TID will always be filled
 	RecordCommon
@@ -454,6 +482,8 @@ func (r *RecordMmap) Type() RecordType {
 	return RecordTypeMmap
 }
 
+// A RecordLost records that profiling events were lost because of a
+// buffer overflow.
 type RecordLost struct {
 	// RecordCommon.ID and .EventAttr will always be filled
 	RecordCommon
@@ -465,6 +495,9 @@ func (r *RecordLost) Type() RecordType {
 	return RecordTypeLost
 }
 
+// A RecordComm records that a process being profiled called exec.
+// RecordComms can also occur at the beginning of a profile to
+// describe the existing set of processes.
 type RecordComm struct {
 	// RecordCommon.PID and .TID will always be filled
 	RecordCommon
@@ -478,6 +511,7 @@ func (r *RecordComm) Type() RecordType {
 	return RecordTypeComm
 }
 
+// A RecordExit records that a process or thread exited.
 type RecordExit struct {
 	// RecordCommon.PID, .TID, and .Time will always be filled
 	RecordCommon
@@ -489,6 +523,8 @@ func (r *RecordExit) Type() RecordType {
 	return RecordTypeExit
 }
 
+// A RecordThrottle records that interrupt throttling was enabled or
+// disabled.
 type RecordThrottle struct {
 	// RecordCommon.Time, .ID, and .StreamID, and .EventAttr will
 	// always be filled
@@ -501,6 +537,8 @@ func (r *RecordThrottle) Type() RecordType {
 	return RecordTypeThrottle
 }
 
+// A RecordFork records that a process called clone to either fork the
+// process or create a new thread.
 type RecordFork struct {
 	// RecordCommon.PID, .TID, and .Time will always be filled
 	RecordCommon
@@ -512,6 +550,11 @@ func (r *RecordFork) Type() RecordType {
 	return RecordTypeFork
 }
 
+// A RecordSample records a profiling sample event.
+//
+// Typically only a subset of the fields are used. Which fields are
+// set can be determined from the bitmask
+// RecordSample.EventAttr.SampleFormat.
 type RecordSample struct {
 	// RecordCommon.EventAttr will always be filled.
 	// RecordCommon.Format descibes the optional fields in this
@@ -525,9 +568,9 @@ type RecordSample struct {
 	Addr   uint64 // if SampleFormatAddr
 	Period uint64 // if SampleFormatPeriod
 
-	// Raw event counter values.  If this is an event group, this
-	// slice will have more than one element; otherwise, it will
-	// have one element.
+	// SampleRead records raw event counter values. If this is an
+	// event group, this slice will have more than one element;
+	// otherwise, it will have one element.
 	SampleRead []SampleRead // if SampleFormatRead
 
 	// Callchain gives the call stack of the sampled instruction,
@@ -629,10 +672,14 @@ func (r *RecordSample) String() string {
 	return s + "}"
 }
 
+// A CPUMode indicates the privilege level of a sample or event.
+//
+// This corresponds to PERF_RECORD_MISC_CPUMODE from
+// include/uapi/linux/perf_event.h
 type CPUMode uint16
 
-// PERF_RECORD_MISC_CPUMODE from include/uapi/linux/perf_event.h
 //go:generate stringer -type=CPUMode
+
 const (
 	CPUModeUnknown CPUMode = iota
 	CPUModeKernel
@@ -642,7 +689,14 @@ const (
 	CPUModeGuestUser
 )
 
-// See perf_event_read_format in include/uapi/linux/perf_event.h
+// A SampleRead records the raw value of an event counter.
+//
+// Typically only a subset of the fields are used. Which fields are
+// set can be determined from the bitmask in the sample's
+// EventAttr.ReadFormat.
+//
+// This corresponds to perf_event_read_format from
+// include/uapi/linux/perf_event.h
 type SampleRead struct {
 	Value       uint64     // Event counter value
 	TimeEnabled uint64     // if ReadFormatTotalTimeEnabled
@@ -650,6 +704,7 @@ type SampleRead struct {
 	EventAttr   *EventAttr // if ReadFormatID
 }
 
+// A BranchRecord records a single branching event in a sample.
 type BranchRecord struct {
 	From, To uint64
 	Flags    uint64 // TODO: Flags encoding
@@ -658,7 +713,8 @@ type BranchRecord struct {
 // Special markers used in RecordSample.Callchain to mark boundaries
 // between types of stacks.
 //
-// PERF_CONTEXT_* from include/uapi/linux/perf_event.h
+// These correspond to PERF_CONTEXT_* from
+// include/uapi/linux/perf_event.h
 const (
 	CallchainHypervisor  = 0xffffffffffffffe0 // -32
 	CallchainKernel      = 0xffffffffffffff80 // -128
@@ -668,10 +724,15 @@ const (
 	CallchainGuestUser   = 0xfffffffffffff600 // -2560
 )
 
-// perf_sample_regs_abi from include/uapi/linux/perf_event.h
+// SampleRegsABI indicates the register ABI of a given sample for
+// architectures that support multiple ABIs.
+//
+// This corresponds to the perf_sample_regs_abi enum from
+// include/uapi/linux/perf_event.h
 type SampleRegsABI uint64
 
 //go:generate stringer -type=SampleRegsABI
+
 const (
 	SampleRegsABINone SampleRegsABI = iota
 	SampleRegsABI32
@@ -812,6 +873,7 @@ func (i DataSrcSnoop) String() string {
 type DataSrcLock int
 
 //go:generate stringer -type=DataSrcLock
+
 const (
 	DataSrcLockNA DataSrcLock = iota
 	DataSrcLockUnlocked
