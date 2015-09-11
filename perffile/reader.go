@@ -224,7 +224,8 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 	}
 	fa.Attr.SampleFormat = attr.SampleFormat
 	fa.Attr.ReadFormat = attr.ReadFormat
-	fa.Attr.Flags = attr.Flags
+	fa.Attr.Flags = attr.Flags &^ eventFlagPreciseMask
+	fa.Attr.Precise = EventPrecision((attr.Flags & eventFlagPreciseMask) >> eventFlagPreciseShift)
 	if attr.Flags&EventFlagWakeupWatermark == 0 {
 		fa.Attr.WakeupEvents = attr.WakeupEventsOrWatermark
 	} else {

@@ -144,6 +144,10 @@ type EventAttr struct {
 
 	Flags EventFlags
 
+	// Precise indicates the precision of instruction pointers
+	// recorded by this event.
+	Precise EventPrecision
+
 	// WakeupEvents specifies to wake up every WakeupEvents
 	// events. Either this or WakeupWatermark will be non-zero,
 	// depending on Flags&EventFlagWakeupWatermark.
@@ -168,10 +172,10 @@ type EventAttr struct {
 	SampleStackUser uint32
 
 	// SampleRegsIntr is a bitmask of registers captured at each
-	// sample in RecordSample.RegsIntr. If precise == 0, these
-	// registers are captured at the PMU interrupt. If precise >
-	// 0, these registers are captured by the hardware at when it
-	// samples an instruction.
+	// sample in RecordSample.RegsIntr. If Precise ==
+	// EventPrecisionArbitrarySkid, these registers are captured
+	// at the PMU interrupt. Otherwise, these registers are
+	// captured by the hardware when it samples an instruction.
 	SampleRegsIntr uint64
 }
 
@@ -344,15 +348,23 @@ const (
 	EventFlagMmapInodeData
 	// Flag comm events that are due to an exec
 	EventFlagCommExec
+
+	eventFlagPreciseShift = 15
+	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
 )
 
+// An EventPrecision indicates the precision of instruction pointers
+// recorded by an event. This can vary depending on the exact method
+// used to capture IPs.
+type EventPrecision int
+
+//go:generate stringer -type=EventPrecision
+
 const (
-	// TODO: Pull precise IP out; it's not a flag
-	EventFlagPreciseArbitrarySkid EventFlags = iota << 15
-	EventFlagPreciseConstantSkid
-	EventFlagPreciseTryZeroSkid
-	EventFlagPreciseZeroSkip
-	EventFlagPreciseIPMask EventFlags = 0x3 << 15
+	EventPrecisionArbitrarySkid EventPrecision = iota
+	EventPrecisionConstantSkid
+	EventPrecisionTryZeroSkid
+	EventPrecisionZeroSkip
 )
 
 // perf_event_header from include/uapi/linux/perf_event.h
