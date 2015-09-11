@@ -93,7 +93,7 @@ type eventAttrV0 struct {
 }
 
 // eventAttrVN is the on-disk latest version of the perf_event_attr
-// structure (currently version 3).
+// structure (currently version 4).
 type eventAttrVN struct {
 	eventAttrV0
 
@@ -107,6 +107,9 @@ type eventAttrVN struct {
 	SampleRegsUser  uint64
 	SampleStackUser uint32
 	Pad1            uint32 // Align to uint64
+
+	// ABI v4
+	SampleRegsIntr uint64
 }
 
 // TODO: Make public
@@ -144,11 +147,23 @@ type EventAttr struct {
 
 	// Note: From here down only if size >= 96
 
-	// The set of user regs to dump on samples
+	// SampleRegsUser is a bitmask of user-space registers
+	// captured at each sample in RecordSample.RegsUser. The
+	// hardware register corresponding to each bit depends on the
+	// register ABI.
 	SampleRegsUser uint64
 
 	// Size of user stack to dump on samples
 	SampleStackUser uint32
+
+	// Note: From here down only if size >= 104
+
+	// SampleRegsIntr is a bitmask of registers captured at each
+	// sample in RecordSample.RegsIntr. If precise == 0, these
+	// registers are captured at the PMU interrupt. If precise >
+	// 0, these registers are captured by the hardware at when it
+	// samples an instruction.
+	SampleRegsIntr uint64
 }
 
 // perf_type_id from include/uapi/linux/perf_event.h
@@ -186,6 +201,7 @@ const (
 	SampleFormatDataSrc
 	SampleFormatIdentifier
 	SampleFormatTransaction
+	SampleFormatRegsIntr
 )
 
 // sampleIDOffset returns the on-disk byte offset of the ID field of
@@ -509,8 +525,22 @@ type RecordSample struct {
 
 	BranchStack []BranchRecord // if SampleFormatBranchStack
 
-	RegsABI SampleRegsABI // if SampleFormatRegsUser
-	Regs    []uint64      // if SampleFormatRegsUser
+	// RegsUserABI and RegsUser record the ABI and values of
+	// user-space registers as of this sample. Note that these are
+	// the current user-space registers even if this sample
+	// occurred at a kernel PC. RegsUser[i] records the value of
+	// the register indicated by the i-th set bit of
+	// EventAttr.SampleRegsUser.
+	RegsUserABI SampleRegsABI // if SampleFormatRegsUser
+	RegsUser    []uint64      // if SampleFormatRegsUser
+
+	// RegsIntrABI And RegsIntr record the ABI and values of
+	// registers as of this sample. Unlike RegsUser, these can be
+	// kernel-space registers if this sample occurs in the kernel.
+	// RegsIntr[i] records the value of the register indicated by
+	// the i-th set bit of EventAttr.SampleRegsIntr.
+	RegsIntrABI SampleRegsABI // if SampleFormatRegsIntr
+	RegsIntr    []uint64      // if SampleFormatRegsIntr
 
 	StackUser        []byte // if SampleFormatStackUser
 	StackUserDynSize uint64 // if SampleFormatStackUser
@@ -564,7 +594,10 @@ func (r *RecordSample) String() string {
 		s += fmt.Sprintf(" BranchStack:%v", r.BranchStack)
 	}
 	if f&SampleFormatRegsUser != 0 {
-		s += fmt.Sprintf(" RegsABI:%v Regs:%v", r.RegsABI, r.Regs)
+		s += fmt.Sprintf(" RegsUserABI:%v RegsUser:%v", r.RegsUserABI, r.RegsUser)
+	}
+	if f&SampleFormatRegsIntr != 0 {
+		s += fmt.Sprintf(" RegsIntrABI:%v RegsIntr:%v", r.RegsIntrABI, r.RegsIntr)
 	}
 	if f&SampleFormatStackUser != 0 {
 		s += fmt.Sprintf(" StackUser:[...] StackUserDynSize:%d", r.StackUserDynSize)

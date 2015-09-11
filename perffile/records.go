@@ -346,14 +346,18 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 	}
 
 	if t&SampleFormatRegsUser != 0 {
-		o.RegsABI = SampleRegsABI(bd.u64())
+		o.RegsUserABI = SampleRegsABI(bd.u64())
 		count := weight(o.EventAttr.SampleRegsUser)
-		if o.Regs == nil || cap(o.Regs) < count {
-			o.Regs = make([]uint64, count)
+		if o.RegsUser == nil || cap(o.RegsUser) < count {
+			o.RegsUser = make([]uint64, count)
 		} else {
-			o.Regs = o.Regs[:count]
+			o.RegsUser = o.RegsUser[:count]
 		}
-		bd.u64s(o.Regs)
+		if o.RegsUserABI == SampleRegsABINone {
+			o.RegsUser = o.RegsUser[:0:0]
+		} else {
+			bd.u64s(o.RegsUser)
+		}
 	}
 
 	if t&SampleFormatStackUser != 0 {
@@ -379,6 +383,21 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 	transaction := bd.u64If(t&SampleFormatTransaction != 0)
 	o.Transaction = Transaction(transaction & 0xffffffff)
 	o.AbortCode = uint32(transaction >> 32)
+
+	if t&SampleFormatRegsIntr != 0 {
+		o.RegsIntrABI = SampleRegsABI(bd.u64())
+		count := weight(o.EventAttr.SampleRegsIntr)
+		if o.RegsIntr == nil || cap(o.RegsIntr) < count {
+			o.RegsIntr = make([]uint64, count)
+		} else {
+			o.RegsIntr = o.RegsIntr[:count]
+		}
+		if o.RegsIntrABI == SampleRegsABINone {
+			o.RegsIntr = o.RegsIntr[:0:0]
+		} else {
+			bd.u64s(o.RegsIntr)
+		}
+	}
 
 	return o
 }
