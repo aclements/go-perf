@@ -36,56 +36,38 @@ func main() {
 
 	fmt.Printf("%+v\n", f)
 
-	if buildIDs, err := f.BuildIDs(); err != nil {
-		log.Fatal(err)
-	} else if buildIDs != nil {
+	if f.Meta.BuildIDs != nil {
 		fmt.Printf("build IDs:\n")
-		for _, bid := range buildIDs {
+		for _, bid := range f.Meta.BuildIDs {
 			fmt.Printf("  %v\n", bid)
 		}
 	}
 
-	nrCPUs := func() ([]int, error) {
-		online, avail, err := f.NrCPUs()
-		if online == 0 && avail == 0 {
-			return nil, err
-		}
-		return []int{online, avail}, err
-	}
-	cpuTopology := func() ([][]perffile.CPUSet, error) {
-		cores, threads, err := f.CPUTopology()
-		if cores == nil {
-			return nil, err
-		}
-		return [][]perffile.CPUSet{cores, threads}, err
-	}
-
 	for _, hdr := range []struct {
 		label string
-		fetch interface{}
+		val   interface{}
 	}{
-		//{"build IDs", f.BuildIDs},
-		{"hostname", f.Hostname},
-		{"OS release", f.OSRelease},
-		{"version", f.Version},
-		{"arch", f.Arch},
-		{"nrcpus", nrCPUs},
-		{"CPU desc", f.CPUDesc},
-		{"CPUID", f.CPUID},
-		{"total memory", f.TotalMem},
-		{"cmdline", f.CmdLine},
-		{"CPU topology", cpuTopology},
-		{"NUMA topology", f.NUMATopology},
-		{"PMU mappings", f.PMUMappings},
-		{"groups", f.GroupDesc},
+		//{"build IDs", &f.Meta.BuildIDs},
+		{"hostname", f.Meta.Hostname},
+		{"OS release", f.Meta.OSRelease},
+		{"version", f.Meta.Version},
+		{"arch", f.Meta.Arch},
+		{"CPUs online", f.Meta.CPUsOnline},
+		{"CPUs available", f.Meta.CPUsAvail},
+		{"CPU desc", f.Meta.CPUDesc},
+		{"CPUID", f.Meta.CPUID},
+		{"total memory", f.Meta.TotalMem},
+		{"cmdline", f.Meta.CmdLine},
+		{"core groups", f.Meta.CoreGroups},
+		{"thread groups", f.Meta.ThreadGroups},
+		{"NUMA nodes", f.Meta.NUMANodes},
+		{"PMU mappings", f.Meta.PMUMappings},
+		{"groups", f.Meta.Groups},
 	} {
-		res := reflect.ValueOf(hdr.fetch).Call(nil)
-		if !res[1].IsNil() {
-			log.Fatal(res[1].Interface())
+		if hdr.val == reflect.Zero(reflect.ValueOf(hdr.val).Type()) {
+			continue
 		}
-		if res[0].Interface() != reflect.Zero(res[0].Type()) {
-			fmt.Printf("%s: %v\n", hdr.label, res[0].Interface())
-		}
+		fmt.Printf("%s: %v\n", hdr.label, hdr.val)
 	}
 
 	rs := f.Records(order)
