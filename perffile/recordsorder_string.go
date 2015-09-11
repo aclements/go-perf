@@ -8,9 +8,9 @@ package perffile
 
 import "fmt"
 
-const _RecordsOrder_name = "RecordsFileOrder"
+const _RecordsOrder_name = "RecordsFileOrderRecordsCausalOrderRecordsTimeOrder"
 
-var _RecordsOrder_index = [...]uint8{0, 16}
+var _RecordsOrder_index = [...]uint8{0, 16, 34, 50}
 
 func (i RecordsOrder) String() string {
 	if i < 0 || i+1 >= RecordsOrder(len(_RecordsOrder_index)) {
