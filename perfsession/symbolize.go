@@ -17,6 +17,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/ianlancetaylor/demangle"
 )
 
 type Symbolic struct {
@@ -180,7 +182,7 @@ func newKallsyms(filename string) (*symbolicExtra, error) {
 			continue
 		}
 		addr, _ := strconv.ParseUint(subs[1], 16, 64)
-		functab = append(functab, funcRange{name, addr, addr})
+		functab = append(functab, funcRange{name, addr, addr, true})
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -212,6 +214,10 @@ func (s *symbolicExtra) findIP(mmap *Mmap, ip uint64) (f *funcRange, l *dwarf.Li
 		})
 		if i < len(s.functab) && s.functab[i].lowpc <= ip && ip < s.functab[i].highpc {
 			f = &s.functab[i]
+			if !f.demangled {
+				f.name = demangle.Filter(f.name)
+				f.demangled = true
+			}
 		}
 	}
 
@@ -230,6 +236,7 @@ func (s *symbolicExtra) findIP(mmap *Mmap, ip uint64) (f *funcRange, l *dwarf.Li
 type funcRange struct {
 	name          string
 	lowpc, highpc uint64
+	demangled     bool
 }
 
 func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
@@ -250,9 +257,15 @@ func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
 		switch ent.Tag {
 		case dwarf.TagSubprogram:
 			r.SkipChildren()
-			name, ok := ent.Val(dwarf.AttrName).(string)
+			const AttrLinkageName dwarf.Attr = 0x6e
+			name, ok := ent.Val(AttrLinkageName).(string)
+			demangled := true
 			if !ok {
-				break
+				name, ok = ent.Val(dwarf.AttrName).(string)
+				demangled = false
+				if !ok {
+					break
+				}
 			}
 			lowpc, ok := ent.Val(dwarf.AttrLowpc).(uint64)
 			if !ok {
@@ -267,7 +280,7 @@ func dwarfFuncTable(dwarff *dwarf.Data) []funcRange {
 			default:
 				break tag
 			}
-			out = append(out, funcRange{name, lowpc, highpc})
+			out = append(out, funcRange{name, lowpc, highpc, demangled})
 
 		case dwarf.TagCompileUnit, dwarf.TagModule, dwarf.TagNamespace:
 			break
@@ -320,7 +333,7 @@ func elfFuncTable(filename string, elff *elf.File) (out []funcRange, isReloc boo
 			sec := elff.Sections[sym.Section]
 			lowpc = lowpc - sec.Addr + sec.Offset
 		}
-		out = append(out, funcRange{sym.Name, lowpc, lowpc + sym.Size})
+		out = append(out, funcRange{sym.Name, lowpc, lowpc + sym.Size, false})
 	}
 
 	sort.Sort(funcRangeSorter(out))
