@@ -340,6 +340,12 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// TODO: When loading profile, check for out-of-date
 		// source files and warn.
 
+		// TODO: This will do entirely the wrong thing for
+		// inlined functions, since the function name will be
+		// the outermost function, but we'll be combining line
+		// numbers that may come from different functions or
+		// even different files.
+
 		// Find the top N functions.
 		topFuncs := []string{}
 		topFuncSet := map[string][]*latencyHistogram{}
