@@ -348,7 +348,7 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 		for i := range o.BranchStack {
 			o.BranchStack[i].From = bd.u64()
 			o.BranchStack[i].To = bd.u64()
-			o.BranchStack[i].Flags = bd.u64()
+			o.BranchStack[i].Flags = BranchFlags(bd.u64())
 		}
 	}
 

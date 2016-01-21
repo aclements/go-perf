@@ -719,7 +719,47 @@ type SampleRead struct {
 // A BranchRecord records a single branching event in a sample.
 type BranchRecord struct {
 	From, To uint64
-	Flags    uint64 // TODO: Flags encoding
+	Flags    BranchFlags
+}
+
+type BranchFlags uint64
+
+const (
+	// BranchFlagMispredicted indicates branch target was mispredicted.
+	BranchFlagMispredicted BranchFlags = 1 << iota
+
+	// BranchFlagPredicted indicates branch target was predicted.
+	// In case predicted/mispredicted information is unavailable,
+	// both flags will be unset.
+	BranchFlagPredicted
+
+	// BranchFlagInTransaction indicates the branch occurred in a
+	// transaction.
+	BranchFlagInTransaction
+
+	// BranchFlagAbort indicates the branch is a transaction abort.
+	BranchFlagAbort
+)
+
+func (i BranchFlags) String() string {
+	// TODO: It would be nice if stringer could do this.
+	s := ""
+	if i&BranchFlagMispredicted != 0 {
+		s += "Mispredicted|"
+	}
+	if i&BranchFlagPredicted != 0 {
+		s += "Predicted|"
+	}
+	if i&BranchFlagInTransaction != 0 {
+		s += "InTransaction|"
+	}
+	if i&BranchFlagAbort != 0 {
+		s += "Abort|"
+	}
+	if len(s) == 0 {
+		return "0"
+	}
+	return s[:len(s)-1]
 }
 
 // Special markers used in RecordSample.Callchain to mark boundaries
