@@ -130,11 +130,24 @@ type EventAttr struct {
 	// config1, and config2.
 	Config [3]uint64
 
-	// SamplePeriod is the sampling period for this event. Either
-	// this or SampleFreq will be non-zero, depending on
-	// Flags&EventFlagsFreq.
+	// SamplePeriod, if non-zero, is the approximate number of
+	// events between each sample.
+	//
+	// For a sampled event, SamplePeriod will be set if
+	// Flags&EventFlagsFreq == 0. See also SampleFreq.
 	SamplePeriod uint64
-	// SampleFreq is the sampling frequency of this event.
+
+	// SampleFreq, if non-zero, is the approximate number of
+	// samples to record per second per core. This is approximated
+	// by dynamically adjusting the event sampling period (see
+	// perf_calculate_period) and thus is not particularly
+	// accurate (and even less accurate for events that don't
+	// happen at a regular rate). If SampleFormat includes
+	// SampleFormatPeriod, each sample includes the number of
+	// events until the next sample on the same CPU.
+	//
+	// For a sampled event, SampleFreq will be set if
+	// Flags&EventFlagsFreq != 0. See also SamplePeriod.
 	SampleFreq uint64
 
 	// The format of RecordSamples
@@ -660,8 +673,13 @@ type RecordSample struct {
 	CPUMode CPUMode // from header.misc
 	ExactIP bool    // from header.misc
 
-	IP     uint64 // if SampleFormatIP
-	Addr   uint64 // if SampleFormatAddr
+	IP   uint64 // if SampleFormatIP
+	Addr uint64 // if SampleFormatAddr
+
+	// Period is the number of events on this CPU until the next
+	// sample. In frequency sampling mode, this is adjusted
+	// dynamically based on the rate of recent events. In period
+	// sampling mode, this is fixed.
 	Period uint64 // if SampleFormatPeriod
 
 	// SampleRead records raw event counter values. If this is an
