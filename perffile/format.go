@@ -7,6 +7,7 @@ package perffile
 import (
 	"fmt"
 	"io"
+	"strconv"
 )
 
 const numFeatureBits = 256
@@ -352,6 +353,89 @@ const (
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
 )
+
+func (i EventFlags) String() string {
+	// TODO: It would be nice if stringer could do this.
+	s := ""
+	if i&EventFlagDisabled != 0 {
+		s += "Disabled|"
+	}
+	if i&EventFlagInherit != 0 {
+		s += "Inherit|"
+	}
+	if i&EventFlagPinned != 0 {
+		s += "Pinned|"
+	}
+	if i&EventFlagExclusive != 0 {
+		s += "Exclusive|"
+	}
+	if i&EventFlagExcludeUser != 0 {
+		s += "ExcludeUser|"
+	}
+	if i&EventFlagExcludeKernel != 0 {
+		s += "ExcludeKernel|"
+	}
+	if i&EventFlagExcludeHypervisor != 0 {
+		s += "ExcludeHypervisor|"
+	}
+	if i&EventFlagExcludeIdle != 0 {
+		s += "ExcludeIdle|"
+	}
+	if i&EventFlagMmap != 0 {
+		s += "Mmap|"
+	}
+	if i&EventFlagComm != 0 {
+		s += "Comm|"
+	}
+	if i&EventFlagFreq != 0 {
+		s += "Freq|"
+	}
+	if i&EventFlagInheritStat != 0 {
+		s += "InheritStat|"
+	}
+	if i&EventFlagEnableOnExec != 0 {
+		s += "EnableOnExec|"
+	}
+	if i&EventFlagTask != 0 {
+		s += "Task|"
+	}
+	if i&EventFlagWakeupWatermark != 0 {
+		s += "WakeupWatermark|"
+	}
+	if i&EventFlagMmapData != 0 {
+		s += "MmapData|"
+	}
+	if i&EventFlagSampleIDAll != 0 {
+		s += "SampleIDAll|"
+	}
+	if i&EventFlagExcludeHost != 0 {
+		s += "ExcludeHost|"
+	}
+	if i&EventFlagExcludeGuest != 0 {
+		s += "ExcludeGuest|"
+	}
+	if i&EventFlagExcludeCallchainKernel != 0 {
+		s += "ExcludeCallchainKernel|"
+	}
+	if i&EventFlagExcludeCallchainUser != 0 {
+		s += "ExcludeCallchainUser|"
+	}
+	if i&EventFlagMmapInodeData != 0 {
+		s += "MmapInodeData|"
+	}
+	if i&EventFlagCommExec != 0 {
+		s += "CommExec|"
+	}
+	i &^= EventFlagDisabled | EventFlagInherit | EventFlagPinned | EventFlagExclusive | EventFlagExcludeUser | EventFlagExcludeKernel | EventFlagExcludeHypervisor | EventFlagExcludeIdle | EventFlagMmap | EventFlagComm | EventFlagFreq | EventFlagInheritStat | EventFlagEnableOnExec | EventFlagTask | EventFlagWakeupWatermark | EventFlagMmapData | EventFlagSampleIDAll | EventFlagExcludeHost | EventFlagExcludeGuest | EventFlagExcludeCallchainKernel | EventFlagExcludeCallchainUser | EventFlagMmapInodeData | EventFlagCommExec
+	if i == 0 {
+		if len(s) == 0 {
+			return "0"
+		}
+		return s[:len(s)-1]
+	} else {
+		return s + "0x" + strconv.FormatUint(uint64(i), 16)
+	}
+}
 
 // An EventPrecision indicates the precision of instruction pointers
 // recorded by an event. This can vary depending on the exact method
