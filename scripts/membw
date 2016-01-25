@@ -1,0 +1,41 @@
+#!/bin/zsh
+
+# Measure read/write memory bandwidth at memory controllers.
+#
+# Based on "Intel® Xeon® Processor E5 v2 and E7 v2 Product Families
+# Uncore Performance Monitoring Reference Manual".
+
+set -e
+
+family=$(grep '^cpu family' /proc/cpuinfo | awk '{print $4; exit}')
+model=$(grep '^model' /proc/cpuinfo | awk '{print $3; exit}')
+fm=$(printf "%02x" $family)_$(printf "%02x" $model)
+
+# TODO: This works for all E5 v2 and E7 v2. There are probably other
+# CPUIDs that apply.
+if [[ $fm != 06_3e ]]; then
+    echo "Unsupported family/model $fm" >&2
+    exit 1
+fi
+
+# Get iMC uncore boxes. In the E5 v2 there are four.
+imcs=($(cd -q /sys/bus/event_source/devices/; echo uncore_imc_*))
+
+# Construct the event list.
+events=()
+for imc in $imcs; do
+    events=($events -e $imc/event=0x04,umask=0x03/ -e $imc/event=0x04,umask=0x0c/)
+done
+
+# Uncore events must be monitored system-wide.
+output=$(perf stat -a $events $* 2>&1)
+echo $output
+
+echo $output | awk '
+/uncore_imc_.*umask=0x03/ {read += $1}
+/uncore_imc_.*umask=0x0c/ {write += $1}
+/time elapsed/ {time = $1}
+END {
+    print (64 * read / time / 1024 / 1024) " MiB read per second"
+    print (64 * write / time / 1024 / 1024) " MiB written per second"
+}'
