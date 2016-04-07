@@ -49,6 +49,7 @@ const pageBytes = 4096
 func main() {
 	var (
 		flagInput      = flag.String("i", "perf.data", "read memory latency profile from `file`")
+		flagBy         = flag.String("by", "address", "`layout` by \"address\" or \"pc\"")
 		flagFPS        = flag.Int("fps", 24, "frames per second")
 		flagDilation   = flag.Float64("dilation", 1, "time dilation factor")
 		flagWidth      = flag.Int("w", 512, "output width/height; must be a power of 2")
@@ -62,6 +63,11 @@ func main() {
 
 	if *flagWidth <= 0 || *flagWidth&(*flagWidth-1) != 0 {
 		fmt.Fprintln(os.Stderr, "width must be a power of two")
+		os.Exit(1)
+	}
+
+	if !(*flagBy == "address" || *flagBy == "pc") {
+		fmt.Fprintln(os.Stderr, "-by must be address or pc")
 		os.Exit(1)
 	}
 
@@ -79,7 +85,7 @@ func main() {
 	// coloring, but it really isn't obvious. Fade it out at a
 	// certain rate? Shade? Ripples?
 
-	events := parsePerf(*flagInput)
+	events := parsePerf(*flagInput, *flagBy)
 
 	// Canonicalize the events.
 	imgSize := *flagWidth
@@ -213,13 +219,15 @@ type event struct {
 
 // parsePerf parses a perf.data profile and returns the cache miss
 // events.
-func parsePerf(fileName string) []event {
+func parsePerf(fileName, by string) []event {
 	f, err := perffile.Open(fileName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error loading profile: %s\n", err)
 		os.Exit(1)
 	}
 	defer f.Close()
+
+	byPC := by == "pc"
 
 	const requiredFormat = perffile.SampleFormatTime | perffile.SampleFormatAddr | perffile.SampleFormatWeight | perffile.SampleFormatDataSrc
 
@@ -236,7 +244,11 @@ func parsePerf(fileName string) []event {
 			if r.DataSrc.Miss {
 				level <<= 1
 			}
-			events = append(events, event{r.Time, r.Addr, r.Weight, levelToPanel[level]})
+			addr := r.Addr
+			if byPC {
+				addr = r.IP
+			}
+			events = append(events, event{r.Time, addr, r.Weight, levelToPanel[level]})
 		}
 	}
 
