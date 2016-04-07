@@ -2,8 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Command memlat is a web-based interactive browser for memory load
-// latency profiles.
+// Command memlat is a web-based browser for memory load latency profiles.
 //
 // Memory stalls and conflicts are increasingly important for software
 // performance. Memory load latency profiles can give deep insights in
@@ -42,6 +41,13 @@
 // remove the source line filter. Finally, select the "Source
 // annotation" tab to see the other source code lines that touch this
 // hot address.
+//
+// Note that the latency reported by the hardware is the time from
+// instruction issue to retire. Hence, a "fast load" (say, an L1 hit)
+// that happens immediately after a "slow load" (say, an LLC miss),
+// will have a high reported latency because it has to wait for the
+// slow load, even though the actual memory operation for the fast
+// load is fast.
 //
 // Usage
 //
