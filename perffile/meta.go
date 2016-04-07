@@ -111,6 +111,9 @@ type NUMANode struct {
 
 // A GroupDesc describes a group of PMU events that are scheduled
 // together.
+//
+// TODO: Are Leader and NumMembers attribute IDs? If so, we should
+// probably map them to *EventAttrs to make this useful.
 type GroupDesc struct {
 	Name       string
 	Leader     int

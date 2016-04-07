@@ -36,6 +36,11 @@ func main() {
 
 	fmt.Printf("%+v\n", f)
 
+	fmt.Printf("events:\n")
+	for _, event := range f.Events {
+		fmt.Printf("  %p=%+v\n", event, *event)
+	}
+
 	if f.Meta.BuildIDs != nil {
 		fmt.Printf("build IDs:\n")
 		for _, bid := range f.Meta.BuildIDs {

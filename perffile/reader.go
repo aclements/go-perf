@@ -23,6 +23,9 @@ type File struct {
 	// information about the hardware.
 	Meta FileMeta
 
+	// Events lists all events that may appear in this profile.
+	Events []*EventAttr
+
 	r      io.ReaderAt
 	closer io.Closer
 	hdr    fileHeader
@@ -42,7 +45,7 @@ type File struct {
 // *File.
 func New(r io.ReaderAt) (*File, error) {
 	// See perf_session__open in tools/perf/util/session.c.
-	file := &File{r: r}
+	file := &File{r: r, Events: make([]*EventAttr, 0)}
 
 	// Read and process the file header.
 	//
@@ -95,6 +98,7 @@ func New(r io.ReaderAt) (*File, error) {
 		if err := readFileAttr(attrSR, &file.attrs[i]); err != nil {
 			return nil, err
 		}
+		file.Events = append(file.Events, &file.attrs[i].Attr)
 	}
 
 	// Read EventAttr IDs and create ID -> EventAttr map
