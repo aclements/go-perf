@@ -2,8 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build ignore
-
+// Command bitstringer generates String methods for bit-mask types.
+//
+// bitstringer is like the stringer tool, but for bit-mask types. See
+// go doc stringer for details.
+//
+// bitstringer adds one flag, -strip, which specifies a prefix to
+// strip from stringified-constants. For bit-mask types in particular,
+// this can make the string representation much shorter, at the
+// expense of not being unambiguous and syntactically valid Go code.
 package main
 
 import (

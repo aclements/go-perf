@@ -215,7 +215,7 @@ const (
 // include/uapi/linux/perf_event.h
 type SampleFormat uint64
 
-//go:generate go run bitstringer.go -type=SampleFormat -strip=SampleFormat
+//go:generate go run ../cmd/bitstringer/main.go -type=SampleFormat -strip=SampleFormat
 
 const (
 	SampleFormatIP SampleFormat = 1 << iota
@@ -305,7 +305,7 @@ func (s SampleFormat) trailerBytes() int {
 // include/uapi/linux/perf_event.h
 type ReadFormat uint64
 
-//go:generate go run bitstringer.go -type=ReadFormat -strip=ReadFormat
+//go:generate go run ../cmd/bitstringer/main.go -type=ReadFormat -strip=ReadFormat
 
 const (
 	ReadFormatTotalTimeEnabled ReadFormat = 1 << iota
@@ -320,7 +320,7 @@ const (
 // include/uapi/linux/perf_event.h
 type EventFlags uint64
 
-//go:generate go run bitstringer.go -type=EventFlags -strip=EventFlag
+//go:generate go run ../cmd/bitstringer/main.go -type=EventFlags -strip=EventFlag
 
 const (
 	// Event is disabled by default
@@ -748,7 +748,7 @@ type BranchRecord struct {
 
 type BranchFlags uint64
 
-//go:generate go run bitstringer.go -type=BranchFlags -strip=BranchFlag
+//go:generate go run ../cmd/bitstringer/main.go -type=BranchFlags -strip=BranchFlag
 
 const (
 	// BranchFlagMispredicted indicates branch target was mispredicted.
@@ -807,7 +807,7 @@ type DataSrc struct {
 
 type DataSrcOp int
 
-//go:generate go run bitstringer.go -type=DataSrcOp -strip=DataSrcOp
+//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcOp -strip=DataSrcOp
 
 const (
 	DataSrcOpLoad DataSrcOp = 1 << iota
@@ -820,7 +820,7 @@ const (
 
 type DataSrcLevel int
 
-//go:generate go run bitstringer.go -type=DataSrcLevel -strip=DataSrcLevel
+//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcLevel -strip=DataSrcLevel
 
 const (
 	DataSrcLevelL1  DataSrcLevel = 1 << iota
@@ -840,7 +840,7 @@ const (
 
 type DataSrcSnoop int
 
-//go:generate go run bitstringer.go -type=DataSrcSnoop -strip=DataSrcSnoop
+//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcSnoop -strip=DataSrcSnoop
 
 const (
 	DataSrcSnoopNone DataSrcSnoop = 1 << iota
@@ -863,7 +863,7 @@ const (
 
 type DataSrcTLB int
 
-//go:generate go run bitstringer.go -type=DataSrcTLB -strip=DataSrcTLB
+//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcTLB -strip=DataSrcTLB
 
 const (
 	DataSrcTLBHit DataSrcTLB = 1 << iota
@@ -878,7 +878,7 @@ const (
 
 type Transaction int
 
-//go:generate go run bitstringer.go -type=Transaction -strip=Transaction
+//go:generate go run ../cmd/bitstringer/main.go -type=Transaction -strip=Transaction
 
 const (
 	TransactionElision       Transaction = 1 << iota // From elision
