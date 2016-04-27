@@ -7,7 +7,6 @@ package perffile
 import (
 	"fmt"
 	"io"
-	"strconv"
 )
 
 const numFeatureBits = 256
@@ -216,6 +215,8 @@ const (
 // include/uapi/linux/perf_event.h
 type SampleFormat uint64
 
+//go:generate go run bitstringer.go -type=SampleFormat -strip=SampleFormat
+
 const (
 	SampleFormatIP SampleFormat = 1 << iota
 	SampleFormatTID
@@ -304,6 +305,8 @@ func (s SampleFormat) trailerBytes() int {
 // include/uapi/linux/perf_event.h
 type ReadFormat uint64
 
+//go:generate go run bitstringer.go -type=ReadFormat -strip=ReadFormat
+
 const (
 	ReadFormatTotalTimeEnabled ReadFormat = 1 << iota
 	ReadFormatTotalTimeRunning
@@ -316,6 +319,8 @@ const (
 // This corresponds to the perf_event_attr enum from
 // include/uapi/linux/perf_event.h
 type EventFlags uint64
+
+//go:generate go run bitstringer.go -type=EventFlags -strip=EventFlag
 
 const (
 	// Event is disabled by default
@@ -366,89 +371,6 @@ const (
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
 )
-
-func (i EventFlags) String() string {
-	// TODO: It would be nice if stringer could do this.
-	s := ""
-	if i&EventFlagDisabled != 0 {
-		s += "Disabled|"
-	}
-	if i&EventFlagInherit != 0 {
-		s += "Inherit|"
-	}
-	if i&EventFlagPinned != 0 {
-		s += "Pinned|"
-	}
-	if i&EventFlagExclusive != 0 {
-		s += "Exclusive|"
-	}
-	if i&EventFlagExcludeUser != 0 {
-		s += "ExcludeUser|"
-	}
-	if i&EventFlagExcludeKernel != 0 {
-		s += "ExcludeKernel|"
-	}
-	if i&EventFlagExcludeHypervisor != 0 {
-		s += "ExcludeHypervisor|"
-	}
-	if i&EventFlagExcludeIdle != 0 {
-		s += "ExcludeIdle|"
-	}
-	if i&EventFlagMmap != 0 {
-		s += "Mmap|"
-	}
-	if i&EventFlagComm != 0 {
-		s += "Comm|"
-	}
-	if i&EventFlagFreq != 0 {
-		s += "Freq|"
-	}
-	if i&EventFlagInheritStat != 0 {
-		s += "InheritStat|"
-	}
-	if i&EventFlagEnableOnExec != 0 {
-		s += "EnableOnExec|"
-	}
-	if i&EventFlagTask != 0 {
-		s += "Task|"
-	}
-	if i&EventFlagWakeupWatermark != 0 {
-		s += "WakeupWatermark|"
-	}
-	if i&EventFlagMmapData != 0 {
-		s += "MmapData|"
-	}
-	if i&EventFlagSampleIDAll != 0 {
-		s += "SampleIDAll|"
-	}
-	if i&EventFlagExcludeHost != 0 {
-		s += "ExcludeHost|"
-	}
-	if i&EventFlagExcludeGuest != 0 {
-		s += "ExcludeGuest|"
-	}
-	if i&EventFlagExcludeCallchainKernel != 0 {
-		s += "ExcludeCallchainKernel|"
-	}
-	if i&EventFlagExcludeCallchainUser != 0 {
-		s += "ExcludeCallchainUser|"
-	}
-	if i&EventFlagMmapInodeData != 0 {
-		s += "MmapInodeData|"
-	}
-	if i&EventFlagCommExec != 0 {
-		s += "CommExec|"
-	}
-	i &^= EventFlagDisabled | EventFlagInherit | EventFlagPinned | EventFlagExclusive | EventFlagExcludeUser | EventFlagExcludeKernel | EventFlagExcludeHypervisor | EventFlagExcludeIdle | EventFlagMmap | EventFlagComm | EventFlagFreq | EventFlagInheritStat | EventFlagEnableOnExec | EventFlagTask | EventFlagWakeupWatermark | EventFlagMmapData | EventFlagSampleIDAll | EventFlagExcludeHost | EventFlagExcludeGuest | EventFlagExcludeCallchainKernel | EventFlagExcludeCallchainUser | EventFlagMmapInodeData | EventFlagCommExec
-	if i == 0 {
-		if len(s) == 0 {
-			return "0"
-		}
-		return s[:len(s)-1]
-	} else {
-		return s + "0x" + strconv.FormatUint(uint64(i), 16)
-	}
-}
 
 // An EventPrecision indicates the precision of instruction pointers
 // recorded by an event. This can vary depending on the exact method
@@ -731,7 +653,7 @@ func (r *RecordSample) Type() RecordType {
 func (r *RecordSample) String() string {
 	// TODO: Stringers for other record types
 	f := r.Format
-	s := fmt.Sprintf("{Offset:%#x Format:%#x EventAttr:%p CPUMode:%v ExactIP:%v", r.Offset, r.Format, r.EventAttr, r.CPUMode, r.ExactIP)
+	s := fmt.Sprintf("{Offset:%v Format:%v EventAttr:%p CPUMode:%v ExactIP:%v", r.Offset, r.Format, r.EventAttr, r.CPUMode, r.ExactIP)
 	if f&(SampleFormatID|SampleFormatIdentifier) != 0 {
 		s += fmt.Sprintf(" ID:%d", r.ID)
 	}
@@ -826,6 +748,8 @@ type BranchRecord struct {
 
 type BranchFlags uint64
 
+//go:generate go run bitstringer.go -type=BranchFlags -strip=BranchFlag
+
 const (
 	// BranchFlagMispredicted indicates branch target was mispredicted.
 	BranchFlagMispredicted BranchFlags = 1 << iota
@@ -842,27 +766,6 @@ const (
 	// BranchFlagAbort indicates the branch is a transaction abort.
 	BranchFlagAbort
 )
-
-func (i BranchFlags) String() string {
-	// TODO: It would be nice if stringer could do this.
-	s := ""
-	if i&BranchFlagMispredicted != 0 {
-		s += "Mispredicted|"
-	}
-	if i&BranchFlagPredicted != 0 {
-		s += "Predicted|"
-	}
-	if i&BranchFlagInTransaction != 0 {
-		s += "InTransaction|"
-	}
-	if i&BranchFlagAbort != 0 {
-		s += "Abort|"
-	}
-	if len(s) == 0 {
-		return "0"
-	}
-	return s[:len(s)-1]
-}
 
 // Special markers used in RecordSample.Callchain to mark boundaries
 // between types of stacks.
@@ -904,6 +807,8 @@ type DataSrc struct {
 
 type DataSrcOp int
 
+//go:generate go run bitstringer.go -type=DataSrcOp -strip=DataSrcOp
+
 const (
 	DataSrcOpLoad DataSrcOp = 1 << iota
 	DataSrcOpStore
@@ -913,28 +818,9 @@ const (
 	DataSrcOpNA DataSrcOp = 0
 )
 
-func (i DataSrcOp) String() string {
-	// TODO: It would be nice if stringer could do this.
-	s := ""
-	if i&DataSrcOpLoad != 0 {
-		s += "Load|"
-	}
-	if i&DataSrcOpStore != 0 {
-		s += "Store|"
-	}
-	if i&DataSrcOpPrefetch != 0 {
-		s += "Prefetch|"
-	}
-	if i&DataSrcOpExec != 0 {
-		s += "Exec|"
-	}
-	if len(s) == 0 {
-		return "NA"
-	}
-	return s[:len(s)-1]
-}
-
 type DataSrcLevel int
+
+//go:generate go run bitstringer.go -type=DataSrcLevel -strip=DataSrcLevel
 
 const (
 	DataSrcLevelL1  DataSrcLevel = 1 << iota
@@ -952,48 +838,9 @@ const (
 	DataSrcLevelNA DataSrcLevel = 0
 )
 
-func (i DataSrcLevel) String() string {
-	s := ""
-	if i&DataSrcLevelL1 != 0 {
-		s += "L1|"
-	}
-	if i&DataSrcLevelLFB != 0 {
-		s += "LFB|"
-	}
-	if i&DataSrcLevelL2 != 0 {
-		s += "L2|"
-	}
-	if i&DataSrcLevelL3 != 0 {
-		s += "L3|"
-	}
-	if i&DataSrcLevelLocalRAM != 0 {
-		s += "LocalRAM|"
-	}
-	if i&DataSrcLevelRemoteRAM1 != 0 {
-		s += "RemoteRAM1|"
-	}
-	if i&DataSrcLevelRemoteRAM2 != 0 {
-		s += "RemoteRAM2|"
-	}
-	if i&DataSrcLevelRemoteCache1 != 0 {
-		s += "RemoteCache1|"
-	}
-	if i&DataSrcLevelRemoteCache2 != 0 {
-		s += "RemoteCache2|"
-	}
-	if i&DataSrcLevelIO != 0 {
-		s += "IO|"
-	}
-	if i&DataSrcLevelUncached != 0 {
-		s += "Uncached|"
-	}
-	if len(s) == 0 {
-		return "NA"
-	}
-	return s[:len(s)-1]
-}
-
 type DataSrcSnoop int
+
+//go:generate go run bitstringer.go -type=DataSrcSnoop -strip=DataSrcSnoop
 
 const (
 	DataSrcSnoopNone DataSrcSnoop = 1 << iota
@@ -1003,26 +850,6 @@ const (
 
 	DataSrcSnoopNA DataSrcSnoop = 0
 )
-
-func (i DataSrcSnoop) String() string {
-	s := ""
-	if i&DataSrcSnoopNone != 0 {
-		s += "None|"
-	}
-	if i&DataSrcSnoopHit != 0 {
-		s += "Hit|"
-	}
-	if i&DataSrcSnoopMiss != 0 {
-		s += "Miss|"
-	}
-	if i&DataSrcSnoopHitM != 0 {
-		s += "HitM|"
-	}
-	if len(s) == 0 {
-		return "NA"
-	}
-	return s[:len(s)-1]
-}
 
 type DataSrcLock int
 
@@ -1036,6 +863,8 @@ const (
 
 type DataSrcTLB int
 
+//go:generate go run bitstringer.go -type=DataSrcTLB -strip=DataSrcTLB
+
 const (
 	DataSrcTLBHit DataSrcTLB = 1 << iota
 	DataSrcTLBMiss
@@ -1047,33 +876,9 @@ const (
 	DataSrcTLBNA DataSrcTLB = 0
 )
 
-func (i DataSrcTLB) String() string {
-	s := ""
-	if i&DataSrcTLBHit != 0 {
-		s += "Hit|"
-	}
-	if i&DataSrcTLBMiss != 0 {
-		s += "Miss|"
-	}
-	if i&DataSrcTLBL1 != 0 {
-		s += "L1|"
-	}
-	if i&DataSrcTLBL2 != 0 {
-		s += "L2|"
-	}
-	if i&DataSrcTLBHardwareWalker != 0 {
-		s += "HardwareWalker|"
-	}
-	if i&DataSrcTLBOSFaultHandler != 0 {
-		s += "OSFaultHandler|"
-	}
-	if len(s) == 0 {
-		return "NA"
-	}
-	return s[:len(s)-1]
-}
-
 type Transaction int
+
+//go:generate go run bitstringer.go -type=Transaction -strip=Transaction
 
 const (
 	TransactionElision       Transaction = 1 << iota // From elision
