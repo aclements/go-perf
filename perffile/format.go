@@ -305,7 +305,7 @@ func (s SampleFormat) trailerBytes() int {
 type ReadFormat uint64
 
 const (
-	ReadFormatTotalTimeEnabled = 1 << iota
+	ReadFormatTotalTimeEnabled ReadFormat = 1 << iota
 	ReadFormatTotalTimeRunning
 	ReadFormatID
 	ReadFormatGroup
