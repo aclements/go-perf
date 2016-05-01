@@ -93,7 +93,7 @@ type eventAttrV0 struct {
 }
 
 // eventAttrVN is the on-disk latest version of the perf_event_attr
-// structure (currently version 4).
+// structure (currently version 5).
 type eventAttrVN struct {
 	eventAttrV0
 
@@ -110,6 +110,10 @@ type eventAttrVN struct {
 
 	// ABI v4
 	SampleRegsIntr uint64
+
+	// ABI v5
+	AuxWatermark uint32
+	Pad          uint32 // Align to uint64
 }
 
 // TODO: Make public
@@ -190,6 +194,10 @@ type EventAttr struct {
 	// at the PMU interrupt. Otherwise, these registers are
 	// captured by the hardware when it samples an instruction.
 	SampleRegsIntr uint64
+
+	// AuxWatermark is the watermark for the AUX area in bytes at
+	// which user space is woken up to collect the AUX area.
+	AuxWatermark uint32
 }
 
 // An EventType is a general class of perf event.
@@ -413,6 +421,7 @@ const (
 	RecordTypeRead
 	RecordTypeSample
 	recordTypeMmap2 // internal extended RecordTypeMmap
+	RecordTypeAux
 
 	recordTypeUserStart RecordType = 64
 )
@@ -582,6 +591,32 @@ type RecordFork struct {
 func (r *RecordFork) Type() RecordType {
 	return RecordTypeFork
 }
+
+// A RecordAux records the data was added to the AUX buffer.
+type RecordAux struct {
+	RecordCommon
+
+	Offset, Size uint64
+	Flags        AuxFlags
+}
+
+func (r *RecordAux) Type() RecordType {
+	return RecordTypeAux
+}
+
+// AuxFlags gives flags for an RecordAux event.
+type AuxFlags uint64
+
+//go:generate go run ../cmd/bitstringer/main.go -type=AuxFlags -strip=AuxFlag
+
+const (
+	// Record was truncated to fit in the ring buffer.
+	AuxFlagTruncated AuxFlags = 1 << iota
+
+	// AUX data was collected in overwrite mode, so the AUX buffer
+	// was treated as a circular ring buffer.
+	AuxFlagOverwrite
+)
 
 // A RecordSample records a profiling sample event.
 //

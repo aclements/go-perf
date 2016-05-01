@@ -246,6 +246,7 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 	}
 	fa.Attr.SampleRegsUser = attr.SampleRegsUser
 	fa.Attr.SampleStackUser = attr.SampleStackUser
+	fa.Attr.AuxWatermark = attr.AuxWatermark
 
 	// Finally, read IDs fileSection, which follows the eventAttr.
 	return binary.Read(sr, binary.LittleEndian, &fa.IDs)

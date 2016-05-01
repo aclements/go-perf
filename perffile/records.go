@@ -46,6 +46,7 @@ type Records struct {
 	recordExit   RecordExit
 	recordFork   RecordFork
 	recordSample RecordSample
+	recordAux    RecordAux
 }
 
 // Err returns the first error encountered by Records.
@@ -141,6 +142,9 @@ func (r *Records) Next() bool {
 
 	case recordTypeMmap2:
 		r.Record = r.parseMmap(bd, &hdr, &common, true)
+
+	case RecordTypeAux:
+		r.Record = r.parseAux(bd, &hdr, &common)
 	}
 	if r.err != nil {
 		return false
@@ -281,6 +285,16 @@ func (r *Records) parseFork(bd *bufDecoder, hdr *recordHeader, common *RecordCom
 	o.PID, o.PPID = int(bd.i32()), int(bd.i32())
 	o.TID, o.PTID = int(bd.i32()), int(bd.i32())
 	o.Time = bd.u64()
+
+	return o
+}
+
+func (r *Records) parseAux(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &r.recordAux
+	o.RecordCommon = *common
+
+	o.Offset, o.Size = bd.u64(), bd.u64()
+	o.Flags = AuxFlags(bd.u64())
 
 	return o
 }
