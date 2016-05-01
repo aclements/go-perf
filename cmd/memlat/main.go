@@ -189,15 +189,15 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		maxLatency = h.db.maxLatency
 	}
-	scale, err := scale.NewLog(1, float64(maxLatency), 10)
+	scaler, err := scale.NewLog(1, float64(maxLatency), 10)
 	if err != nil {
 		log.Fatal(err)
 	}
-	scale.Nice(6)
+	scaler.Nice(scale.TickOptions{Max: 6})
 
 	var histograms []*latencyHistogram
 	newHist := func() *latencyHistogram {
-		hist := newLatencyHistogram(&scale)
+		hist := newLatencyHistogram(&scaler)
 		histograms = append(histograms, hist)
 		return hist
 	}
@@ -403,7 +403,7 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			for line := minLine; line <= maxLine; line++ {
 				hist := haveLines[line]
 				if hist == nil {
-					hist = newLatencyHistogram(&scale)
+					hist = newLatencyHistogram(&scaler)
 					set = append(set, hist)
 					hist.FileName = fileName
 					hist.Line = line
@@ -416,7 +416,7 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			sort.Sort(lineSorter(set))
 
 			// Add function histograms to top-level list.
-			header := newLatencyHistogram(&scale)
+			header := newLatencyHistogram(&scaler)
 			header.Bins = nil
 			header.Text = funcName
 			header.IsHeader = true
@@ -435,8 +435,8 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Construct JSON reply.
-	major, minor := scale.Ticks(6)
-	majorX, minorX := vec.Map(scale.Map, major), vec.Map(scale.Map, minor)
+	major, minor := scaler.Ticks(scale.TickOptions{Max: 6})
+	majorX, minorX := vec.Map(scaler.Map, major), vec.Map(scaler.Map, minor)
 	err = json.NewEncoder(w).Encode(struct {
 		Histograms []*latencyHistogram
 		MaxBin     int
