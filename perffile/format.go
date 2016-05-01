@@ -106,7 +106,7 @@ type eventAttrVN struct {
 	// ABI v3
 	SampleRegsUser  uint64
 	SampleStackUser uint32
-	Pad1            uint32 // Align to uint64
+	ClockID         int32
 
 	// ABI v4
 	SampleRegsIntr uint64
@@ -367,6 +367,8 @@ const (
 	EventFlagMmapInodeData
 	// Flag comm events that are due to an exec
 	EventFlagCommExec
+	// Use clock specified by clockid for time fields
+	EventFlagClockID
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift

@@ -9,6 +9,9 @@ func (i EventFlags) String() string {
 		return "0"
 	}
 	s := ""
+	if i&EventFlagClockID != 0 {
+		s += "ClockID|"
+	}
 	if i&EventFlagComm != 0 {
 		s += "Comm|"
 	}
@@ -78,7 +81,7 @@ func (i EventFlags) String() string {
 	if i&EventFlagWakeupWatermark != 0 {
 		s += "WakeupWatermark|"
 	}
-	i &^= 33456127
+	i &^= 67010559
 	if i == 0 {
 		return s[:len(s)-1]
 	}
