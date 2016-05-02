@@ -76,7 +76,20 @@ func main() {
 
 	rs := f.Records(order)
 	for rs.Next() {
-		fmt.Printf("%v %+v\n", rs.Record.Type(), rs.Record)
+		fmt.Printf("%v{\n", rs.Record.Type())
+		switch r := rs.Record.(type) {
+		case *perffile.RecordSample:
+			v := reflect.ValueOf(r).Elem()
+			for _, n := range r.Fields() {
+				f := v.FieldByName(n)
+				fmt.Printf("\t%s,\n", fmtVal(n, f))
+			}
+		default:
+			printFields(reflect.ValueOf(r))
+		}
+		fmt.Printf("}\n")
+
+		//fmt.Printf("%v %+v\n", rs.Record.Type(), rs.Record)
 	}
 	if err := rs.Err(); err != nil {
 		log.Fatal(err)
@@ -93,4 +106,33 @@ func parseOrder(order string) (perffile.RecordsOrder, bool) {
 		return perffile.RecordsCausalOrder, true
 	}
 	return 0, false
+}
+
+func printFields(v reflect.Value) {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		info := t.Field(i)
+		f := v.Field(i)
+		if info.Anonymous {
+			printFields(f)
+		} else if (f.Kind() == reflect.Ptr || f.Kind() == reflect.Slice) && f.IsNil() {
+			// Skip
+		} else {
+			fmt.Printf("\t%s,\n", fmtVal(info.Name, f))
+		}
+	}
+}
+
+func fmtVal(name string, v reflect.Value) string {
+	if v.Kind() == reflect.Ptr {
+		return fmt.Sprintf("%-14s %p", name+":", v.Interface())
+	}
+	switch name {
+	case "IP", "Addr", "Callchain":
+		return fmt.Sprintf("%-14s %#x", name+":", v.Interface())
+	}
+	return fmt.Sprintf("%-14s %+v", name+":", v.Interface())
 }
