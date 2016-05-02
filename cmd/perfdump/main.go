@@ -33,8 +33,6 @@ func main() {
 	}
 	defer f.Close()
 
-	fmt.Printf("%+v\n", f)
-
 	fmt.Printf("events:\n")
 	for _, event := range f.Events {
 		fmt.Printf("  %p=%+v\n", event, *event)
@@ -73,6 +71,8 @@ func main() {
 		}
 		fmt.Printf("%s: %v\n", hdr.label, hdr.val)
 	}
+
+	fmt.Println()
 
 	rs := f.Records(order)
 	for rs.Next() {
