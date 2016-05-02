@@ -105,7 +105,11 @@ func (r *Records) Next() bool {
 
 	// Parse common sample_id fields
 	if r.f.sampleIDAll && hdr.Type != RecordTypeSample && hdr.Type < recordTypeUserStart {
-		r.parseCommon(bd, &common)
+		// mmap records in the prologue don't have eventAttrs
+		// in recent perf versions, but that's okay.
+		//
+		// TODO: When is perf okay with missing eventAttrs?
+		r.parseCommon(bd, &common, hdr.Type == RecordTypeMmap)
 	}
 
 	// Parse record
@@ -152,7 +156,7 @@ func (r *Records) Next() bool {
 	return true
 }
 
-func (r *Records) getAttr(id attrID) *EventAttr {
+func (r *Records) getAttr(id attrID, nilOk bool) *EventAttr {
 	// See perf_evlist__id2evsel in tools/perf/util/evlist.c.
 
 	// If there's only one event, all records implicitly use it.
@@ -163,20 +167,22 @@ func (r *Records) getAttr(id attrID) *EventAttr {
 	if attr, ok := r.f.idToAttr[id]; ok {
 		return attr
 	}
-	r.err = fmt.Errorf("event has unknown eventAttr ID %d", id)
+	if !nilOk {
+		r.err = fmt.Errorf("event has unknown eventAttr ID %d", id)
+	}
 	return nil
 }
 
 // parseCommon parses the common sample_id structure in the trailer of
 // non-sample records.
-func (r *Records) parseCommon(bd *bufDecoder, o *RecordCommon) bool {
+func (r *Records) parseCommon(bd *bufDecoder, o *RecordCommon, missingOk bool) bool {
 	// Get EventAttr ID
 	if r.f.recordIDOffset == -1 {
 		o.ID = 0
 	} else {
 		o.ID = attrID(bd.order.Uint64(bd.buf[len(bd.buf)+r.f.recordIDOffset:]))
 	}
-	o.EventAttr = r.getAttr(o.ID)
+	o.EventAttr = r.getAttr(o.ID, missingOk && o.ID == 0)
 	if o.EventAttr == nil {
 		return false
 	}
@@ -225,7 +231,7 @@ func (r *Records) parseLost(bd *bufDecoder, hdr *recordHeader, common *RecordCom
 	o.Format |= SampleFormatID
 
 	o.ID = attrID(bd.u64())
-	o.EventAttr = r.getAttr(o.ID)
+	o.EventAttr = r.getAttr(o.ID, false)
 	o.NumLost = bd.u64()
 
 	return o
@@ -270,7 +276,7 @@ func (r *Records) parseThrottle(bd *bufDecoder, hdr *recordHeader, common *Recor
 	if r.f.idToAttr[id] == nil && r.f.idToAttr[0] != nil {
 		o.EventAttr = r.f.idToAttr[0]
 	} else {
-		o.EventAttr = r.getAttr(id)
+		o.EventAttr = r.getAttr(id, false)
 	}
 	o.StreamID = bd.u64()
 
@@ -309,7 +315,7 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 	} else {
 		o.ID = attrID(bd.order.Uint64(bd.buf[r.f.sampleIDOffset:]))
 	}
-	o.EventAttr = r.getAttr(o.ID)
+	o.EventAttr = r.getAttr(o.ID, false)
 	if o.EventAttr == nil {
 		return nil
 	}
@@ -441,7 +447,7 @@ func (r *Records) parseReadFormat(bd *bufDecoder, f ReadFormat, out *[]SampleRea
 		o.TimeEnabled = bd.u64If(f&ReadFormatTotalTimeEnabled != 0)
 		o.TimeRunning = bd.u64If(f&ReadFormatTotalTimeRunning != 0)
 		if f&ReadFormatID != 0 {
-			o.EventAttr = r.getAttr(attrID(bd.u64()))
+			o.EventAttr = r.getAttr(attrID(bd.u64()), false)
 		} else {
 			o.EventAttr = nil
 		}
@@ -452,7 +458,7 @@ func (r *Records) parseReadFormat(bd *bufDecoder, f ReadFormat, out *[]SampleRea
 			o.TimeRunning = bd.u64If(f&ReadFormatTotalTimeRunning != 0)
 			o.Value = bd.u64()
 			if f&ReadFormatID != 0 {
-				o.EventAttr = r.getAttr(attrID(bd.u64()))
+				o.EventAttr = r.getAttr(attrID(bd.u64()), false)
 			} else {
 				o.EventAttr = nil
 			}
