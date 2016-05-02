@@ -745,6 +745,65 @@ func (r *RecordSample) String() string {
 	return s + "}"
 }
 
+// Fields returns the list of names of valid fields in r based on
+// r.Format. This is useful for writing custom printing functions.
+func (r *RecordSample) Fields() []string {
+	f := r.Format
+	fs := []string{"Offset", "Format", "EventAttr", "CPUMode", "ExactIP"}
+	if f&(SampleFormatID|SampleFormatIdentifier) != 0 {
+		fs = append(fs, "ID")
+	}
+	if f&SampleFormatIP != 0 {
+		fs = append(fs, "IP")
+	}
+	if f&SampleFormatTID != 0 {
+		fs = append(fs, "PID", "TID")
+	}
+	if f&SampleFormatTime != 0 {
+		fs = append(fs, "Time")
+	}
+	if f&SampleFormatAddr != 0 {
+		fs = append(fs, "Addr")
+	}
+	if f&SampleFormatStreamID != 0 {
+		fs = append(fs, "StreamID")
+	}
+	if f&SampleFormatCPU != 0 {
+		fs = append(fs, "CPU", "Res")
+	}
+	if f&SampleFormatPeriod != 0 {
+		fs = append(fs, "Period")
+	}
+	if f&SampleFormatRead != 0 {
+		fs = append(fs, "SampleRead")
+	}
+	if f&SampleFormatCallchain != 0 {
+		fs = append(fs, "Callchain")
+	}
+	if f&SampleFormatBranchStack != 0 {
+		fs = append(fs, "BranchStack")
+	}
+	if f&SampleFormatRegsUser != 0 {
+		fs = append(fs, "RegsUserABI", "RegsUser")
+	}
+	if f&SampleFormatRegsIntr != 0 {
+		fs = append(fs, "RegsIntrABI", "RegsIntr")
+	}
+	if f&SampleFormatStackUser != 0 {
+		fs = append(fs, "StackUser", "StackUserDynSize")
+	}
+	if f&SampleFormatWeight != 0 {
+		fs = append(fs, "Weight")
+	}
+	if f&SampleFormatDataSrc != 0 {
+		fs = append(fs, "DataSrc")
+	}
+	if f&SampleFormatTransaction != 0 {
+		fs = append(fs, "Transaction", "AbortCode")
+	}
+	return fs
+}
+
 // A CPUMode indicates the privilege level of a sample or event.
 //
 // This corresponds to PERF_RECORD_MISC_CPUMODE from
