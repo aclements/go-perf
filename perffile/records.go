@@ -105,11 +105,18 @@ func (r *Records) Next() bool {
 
 	// Parse common sample_id fields
 	if r.f.sampleIDAll && hdr.Type != RecordTypeSample && hdr.Type < recordTypeUserStart {
-		// mmap records in the prologue don't have eventAttrs
+		// some records in the prologue don't have eventAttrs
 		// in recent perf versions, but that's okay.
 		//
 		// TODO: When is perf okay with missing eventAttrs?
-		r.parseCommon(bd, &common, hdr.Type == RecordTypeMmap)
+		missingOk := (hdr.Type == RecordTypeMmap) ||
+			(hdr.Type == RecordTypeFork) ||
+			(hdr.Type == RecordTypeComm) ||
+			(hdr.Type == recordTypeMmap2)
+		r.parseCommon(bd, &common, missingOk)
+		if r.err != nil {
+			return false
+		}
 	}
 
 	// Parse record

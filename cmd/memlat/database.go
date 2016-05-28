@@ -175,6 +175,11 @@ func parsePerf(fileName string) *database {
 		}
 	}
 
+	if err := rs.Err(); err != nil {
+		fmt.Printf("error while reading record: %s\n", err)
+		os.Exit(1)
+	}
+
 	if numSamples == 0 {
 		fmt.Printf("no memory latency samples in %s (did you use \"perf mem record\"?)\n", fileName)
 		os.Exit(1)
