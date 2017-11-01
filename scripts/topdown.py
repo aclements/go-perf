@@ -116,6 +116,13 @@ frontendBound = E("IDQ_UOPS_NOT_DELIVERED.CORE") / slots
 fetchLatencyBound = E("IDQ_UOPS_NOT_DELIVERED.CORE:cmask=4") / clocks
 fetchBandwidthBound = frontendBound - fetchLatencyBound
 
+# Fetch bandwidth breakdown from toplev.py. NOTE: These are just
+# fractions of all cycles. They don't add up to fetchBandwidthBound,
+# since they're not gated on the front end being bottlenecked.
+fe_MITE = (E("IDQ.ALL_MITE_CYCLES_ANY_UOPS") - E("IDQ.ALL_MITE_CYCLES_4_UOPS")) / clocks
+fe_DSB = (E("IDQ.ALL_DSB_CYCLES_ANY_UOPS") - E("IDQ.ALL_DSB_CYCLES_4_UOPS")) / clocks
+fe_LSD = (E("LSD.CYCLES_ACTIVE") - E("LSD.CYCLES_4_UOPS")) / clocks
+
 badSpeculation = (E("UOPS_ISSUED.ANY") - E("UOPS_RETIRED.RETIRE_SLOTS") + 4 * E("INT_MISC.RECOVERY_CYCLES")) / slots
 
 retiring = E("UOPS_RETIRED.RETIRE_SLOTS") / slots
@@ -187,7 +194,10 @@ tree = Node("All slots", None,
             Node("No µop issued", None,
                  Node("Front end bound", frontendBound,
                       Node("Fetch latency bound", fetchLatencyBound),
-                      Node("Fetch bandwidth bound", fetchBandwidthBound)),
+                      Node("Fetch bandwidth bound", fetchBandwidthBound,
+                           Node("MITE *", fe_MITE),
+                           Node("DSB *", fe_DSB),
+                           Node("LSD *", fe_LSD))),
                  Node("Back end bound", None,
                       Node("Core bound", coreBound),
                       Node("Memory bound", memoryBound,
@@ -201,8 +211,8 @@ tree = Node("All slots", None,
                            Node("L2 bound", l2Bound),
                            Node("L3 bound", l3Bound),
                            Node("Ext mem bound", extMemoryBound,
-                                Node("Bandwidth", extMem_BandwidthBound),
-                                Node("Latency", extMem_LatencyBound))))))
+                                Node("Bandwidth *", extMem_BandwidthBound),
+                                Node("Latency *", extMem_LatencyBound))))))
 
 def cpu_family_model():
     family = model = None
