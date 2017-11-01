@@ -220,8 +220,9 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 	}
 
 	// Convert on-disk perf_event_attr in to EventAttr.
-	fa.Attr.Event.Type = attr.Type
-	fa.Attr.Event.ID = attr.Config
+	var ev EventGeneric
+	ev.Type = attr.Type
+	ev.ID = attr.Config
 	if attr.Flags&EventFlagFreq == 0 {
 		fa.Attr.SamplePeriod = attr.SamplePeriodOrFreq
 	} else {
@@ -240,14 +241,16 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 		// For EventTypeBreakpoint, attr.Config is 0 and the
 		// breakpoint type is described in BPType. We merge
 		// the two.
-		fa.Attr.Event.ID = EventID(attr.BPType)
+		ev.ID = uint64(attr.BPType)
 	}
-	fa.Attr.Event.Config = make([]uint64, 2)
-	fa.Attr.Event.Config[0] = attr.BPAddrOrConfig1
-	fa.Attr.Event.Config[1] = attr.BPLenOrConfig2
+	ev.Config = make([]uint64, 2)
+	ev.Config[0] = attr.BPAddrOrConfig1
+	ev.Config[1] = attr.BPLenOrConfig2
 	fa.Attr.SampleRegsUser = attr.SampleRegsUser
 	fa.Attr.SampleStackUser = attr.SampleStackUser
 	fa.Attr.AuxWatermark = attr.AuxWatermark
+
+	fa.Attr.Event = ev.Decode()
 
 	// Finally, read IDs fileSection, which follows the eventAttr.
 	return binary.Read(sr, binary.LittleEndian, &fa.IDs)

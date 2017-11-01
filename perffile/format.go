@@ -82,7 +82,7 @@ type fileAttr struct {
 type eventAttrV0 struct {
 	Type                    EventType
 	Size                    uint32
-	Config                  EventID
+	Config                  uint64
 	SamplePeriodOrFreq      uint64
 	SampleFormat            SampleFormat
 	ReadFormat              ReadFormat
@@ -125,28 +125,10 @@ type attrID uint64
 // cycles or cache misses. They can be kernel software events such as
 // page faults. They can be user or kernel trace-points, or many other
 // things. All events happen at some instant and can be counted.
-type Event struct {
-	// Type specifies the major type of this event, such as
-	// hardware event, software event, or tracepoint.
-	Type EventType
-
-	// ID is the specific event within the class described by
-	// Type.
-	//
-	// In perf_event_attr, this corresponds to either
-	// perf_event_attr.config or perf_event_attr.bp_type depending
-	// on Type.
-	ID EventID
-
-	// Config gives additional configuration specific to the event
-	// described by Type and ID.
-	//
-	// In perf_event_attr, this corresponds to
-	// perf_event_attr.config1 and config2.
-	Config []uint64
+type Event interface {
+	// Generic returns the generic representation of this Event.
+	Generic() EventGeneric
 }
-
-// TODO: Predefined Events.
 
 // An EventType is a general class of performance event.
 //
@@ -162,13 +144,6 @@ const (
 	EventTypeTracepoint
 	EventTypeHWCache
 	EventTypeRaw
-
-	// EventTypeBreakpoint triggers when a specific address is
-	// read, written, or executed. Event.ID specifies what sort of
-	// access should trigger this event. Event.Config[0] specifies
-	// the breakpoint address. Event.Config[1] specifies how many
-	// bytes of memory to watch at this address (which must be
-	// between 1 and 8).
 	EventTypeBreakpoint
 )
 
