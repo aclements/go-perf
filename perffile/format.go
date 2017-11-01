@@ -644,7 +644,7 @@ type RecordSample struct {
 	// SampleRead records raw event counter values. If this is an
 	// event group, this slice will have more than one element;
 	// otherwise, it will have one element.
-	SampleRead []SampleRead // if SampleFormatRead
+	SampleRead []Count // if SampleFormatRead
 
 	// Callchain gives the call stack of the sampled instruction,
 	// starting from the sampled instruction itself. The call
@@ -821,7 +821,7 @@ const (
 	CPUModeGuestUser
 )
 
-// A SampleRead records the raw value of an event counter.
+// A Count records the raw value of an event counter.
 //
 // Typically only a subset of the fields are used. Which fields are
 // set can be determined from the bitmask in the sample's
@@ -829,7 +829,7 @@ const (
 //
 // This corresponds to perf_event_read_format from
 // include/uapi/linux/perf_event.h
-type SampleRead struct {
+type Count struct {
 	Value       uint64     // Event counter value
 	TimeEnabled uint64     // if ReadFormatTotalTimeEnabled
 	TimeRunning uint64     // if ReadFormatTotalTimeRunning

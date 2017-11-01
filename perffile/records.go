@@ -429,14 +429,14 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 	return o
 }
 
-func (r *Records) parseReadFormat(bd *bufDecoder, f ReadFormat, out *[]SampleRead) {
+func (r *Records) parseReadFormat(bd *bufDecoder, f ReadFormat, out *[]Count) {
 	n := 1
 	if f&ReadFormatGroup != 0 {
 		n = int(bd.u64())
 	}
 
 	if *out == nil || cap(*out) < n {
-		*out = make([]SampleRead, n)
+		*out = make([]Count, n)
 	} else {
 		*out = (*out)[:n]
 	}
