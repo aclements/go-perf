@@ -220,8 +220,8 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 	}
 
 	// Convert on-disk perf_event_attr in to EventAttr.
-	fa.Attr.Type = attr.Type
-	fa.Attr.Config[0] = attr.Config
+	fa.Attr.Event.Type = attr.Type
+	fa.Attr.Event.ID = attr.Config
 	if attr.Flags&EventFlagFreq == 0 {
 		fa.Attr.SamplePeriod = attr.SamplePeriodOrFreq
 	} else {
@@ -236,14 +236,15 @@ func readFileAttr(sr *io.SectionReader, fa *fileAttr) error {
 	} else {
 		fa.Attr.WakeupWatermark = attr.WakeupEventsOrWatermark
 	}
-	fa.Attr.BPType = attr.BPType
 	if attr.Type == EventTypeBreakpoint {
-		fa.Attr.BPAddr = attr.BPAddrOrConfig1
-		fa.Attr.BPLen = attr.BPLenOrConfig2
-	} else {
-		fa.Attr.Config[1] = attr.BPAddrOrConfig1
-		fa.Attr.Config[2] = attr.BPLenOrConfig2
+		// For EventTypeBreakpoint, attr.Config is 0 and the
+		// breakpoint type is described in BPType. We merge
+		// the two.
+		fa.Attr.Event.ID = EventID(attr.BPType)
 	}
+	fa.Attr.Event.Config = make([]uint64, 2)
+	fa.Attr.Event.Config[0] = attr.BPAddrOrConfig1
+	fa.Attr.Event.Config[1] = attr.BPLenOrConfig2
 	fa.Attr.SampleRegsUser = attr.SampleRegsUser
 	fa.Attr.SampleStackUser = attr.SampleStackUser
 	fa.Attr.AuxWatermark = attr.AuxWatermark

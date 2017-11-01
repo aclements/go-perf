@@ -82,7 +82,7 @@ type fileAttr struct {
 type eventAttrV0 struct {
 	Type                    EventType
 	Size                    uint32
-	Config                  uint64
+	Config                  EventID
 	SamplePeriodOrFreq      uint64
 	SampleFormat            SampleFormat
 	ReadFormat              ReadFormat
@@ -119,19 +119,70 @@ type eventAttrVN struct {
 // TODO: Make public
 type attrID uint64
 
-// EventAttr describes an event that is recorded in a perf.data file.
+// Event describes a specific performance monitoring event.
 //
-// This corresponds to the perf_event_attr struct from
-// include/uapi/linux/perf_event.h
-type EventAttr struct {
+// Events are quite general. They can be hardware events such as
+// cycles or cache misses. They can be kernel software events such as
+// page faults. They can be user or kernel trace-points, or many other
+// things. All events happen at some instant and can be counted.
+type Event struct {
 	// Type specifies the major type of this event, such as
 	// hardware event, software event, or tracepoint.
 	Type EventType
 
-	// Config gives Type-specific configuration information. In
-	// perf_event_attr, this corresponds to the fields config,
-	// config1, and config2.
-	Config [3]uint64
+	// ID is the specific event within the class described by
+	// Type.
+	//
+	// In perf_event_attr, this corresponds to either
+	// perf_event_attr.config or perf_event_attr.bp_type depending
+	// on Type.
+	ID EventID
+
+	// Config gives additional configuration specific to the event
+	// described by Type and ID.
+	//
+	// In perf_event_attr, this corresponds to
+	// perf_event_attr.config1 and config2.
+	Config []uint64
+}
+
+// TODO: Predefined Events.
+
+// An EventType is a general class of performance event.
+//
+// This corresponds to the perf_type_id enum from
+// include/uapi/linux/perf_event.h
+type EventType uint32
+
+//go:generate stringer -type=EventType
+
+const (
+	EventTypeHardware EventType = iota
+	EventTypeSoftware
+	EventTypeTracepoint
+	EventTypeHWCache
+	EventTypeRaw
+
+	// EventTypeBreakpoint triggers when a specific address is
+	// read, written, or executed. Event.ID specifies what sort of
+	// access should trigger this event. Event.Config[0] specifies
+	// the breakpoint address. Event.Config[1] specifies how many
+	// bytes of memory to watch at this address (which must be
+	// between 1 and 8).
+	EventTypeBreakpoint
+)
+
+// An EventID combined with an EventType describes a specific event.
+type EventID uint64
+
+// EventAttr describes an event and how that event should be recorded.
+//
+// This corresponds to the perf_event_attr struct from
+// include/uapi/linux/perf_event.h
+type EventAttr struct {
+	// Event describes the event that will be (or was) counted or
+	// sampled.
+	Event Event
 
 	// SamplePeriod, if non-zero, is the approximate number of
 	// events between each sample.
@@ -173,10 +224,6 @@ type EventAttr struct {
 	// bytes.
 	WakeupWatermark uint32
 
-	BPType uint32
-	BPAddr uint64
-	BPLen  uint64
-
 	BranchSampleType uint64 // TODO: PERF_SAMPLE_BRANCH_*
 
 	// SampleRegsUser is a bitmask of user-space registers
@@ -199,23 +246,6 @@ type EventAttr struct {
 	// which user space is woken up to collect the AUX area.
 	AuxWatermark uint32
 }
-
-// An EventType is a general class of perf event.
-//
-// This corresponds to the perf_type_id enum from
-// include/uapi/linux/perf_event.h
-type EventType uint32
-
-//go:generate stringer -type=EventType
-
-const (
-	EventTypeHardware EventType = iota
-	EventTypeSoftware
-	EventTypeTracepoint
-	EventTypeHWCache
-	EventTypeRaw
-	EventTypeBreakpoint
-)
 
 // A SampleFormat is a bitmask of the fields recorded by a sample.
 //
