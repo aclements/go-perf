@@ -98,6 +98,9 @@ var staticFiles mapFS
 // TODO: Open a browser automatically. Maybe bind to any address in
 // this mode.
 
+// TODO: Does this correctly handle the dynamic sampling rate that
+// perf mem record uses by default?
+
 func main() {
 	var (
 		flagInput   = flag.String("i", "perf.data", "read memory latency profile from `file`")
