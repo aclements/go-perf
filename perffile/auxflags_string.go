@@ -9,13 +9,19 @@ func (i AuxFlags) String() string {
 		return "0"
 	}
 	s := ""
+	if i&AuxFlagCollision != 0 {
+		s += "Collision|"
+	}
 	if i&AuxFlagOverwrite != 0 {
 		s += "Overwrite|"
+	}
+	if i&AuxFlagPartial != 0 {
+		s += "Partial|"
 	}
 	if i&AuxFlagTruncated != 0 {
 		s += "Truncated|"
 	}
-	i &^= 3
+	i &^= 15
 	if i == 0 {
 		return s[:len(s)-1]
 	}

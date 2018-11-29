@@ -9,6 +9,9 @@ func (i DataSrcSnoop) String() string {
 		return "NA"
 	}
 	s := ""
+	if i&DataSrcSnoopFwd != 0 {
+		s += "Fwd|"
+	}
 	if i&DataSrcSnoopHit != 0 {
 		s += "Hit|"
 	}
@@ -21,7 +24,7 @@ func (i DataSrcSnoop) String() string {
 	if i&DataSrcSnoopNone != 0 {
 		s += "None|"
 	}
-	i &^= 15
+	i &^= 31
 	if i == 0 {
 		return s[:len(s)-1]
 	}

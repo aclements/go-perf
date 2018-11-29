@@ -9,6 +9,10 @@ import (
 	"io"
 )
 
+/*gendefs:C
+#include <include/uapi/linux/perf_event.h>
+*/
+
 const numFeatureBits = 256
 
 // perf_file_header from tools/perf/util/header.h
@@ -47,6 +51,9 @@ func (s fileSection) data(r io.ReaderAt) ([]byte, error) {
 
 // HEADER_* enum from tools/perf/util/header.h
 type feature int
+
+// TODO: gendefs HEADER_* feature -omit HEADER_FIRST_FEATURE -omit HEADER_FEAT_BITS
+// Tricky because tools/perf/util/header.h pulls in all sorts of other junk.
 
 const (
 	featureReserved feature = iota // always cleared
@@ -89,7 +96,10 @@ type eventAttrV0 struct {
 	Flags                   EventFlags
 	WakeupEventsOrWatermark uint32
 	BPType                  uint32
-	BPAddrOrConfig1         uint64
+	// BPAddrOrConfig1 can also contain kprobe_func or uprobe_path,
+	// but these are just pointers to strings used by the
+	// perf_event_open API, so are not meaningful in perf files.
+	BPAddrOrConfig1 uint64
 }
 
 // eventAttrVN is the on-disk latest version of the perf_event_attr
@@ -98,10 +108,14 @@ type eventAttrVN struct {
 	eventAttrV0
 
 	// ABI v1
+	//
+	// BPLenOrConfig2 can also contain kprobe_addr or
+	// probe_offset, which are used in conjunction with
+	// kprobe_func and uprobe_path (above).
 	BPLenOrConfig2 uint64
 
 	// ABI v2
-	BranchSampleType uint64
+	BranchSampleType BranchSampleType
 
 	// ABI v3
 	SampleRegsUser  uint64
@@ -112,8 +126,9 @@ type eventAttrVN struct {
 	SampleRegsIntr uint64
 
 	// ABI v5
-	AuxWatermark uint32
-	Pad          uint32 // Align to uint64
+	AuxWatermark   uint32
+	SampleMaxStack uint16 // Max number of frame pointers in a callchain; should be < /proc/sys/kernel/perf_event_max_stack
+	Pad            uint16 // Align to uint64
 }
 
 // TODO: Make public
@@ -136,6 +151,7 @@ type Event interface {
 // include/uapi/linux/perf_event.h
 type EventType uint32
 
+//gendefs perf_type_id.PERF_TYPE_* EventType -omit-max
 //go:generate stringer -type=EventType
 
 const (
@@ -199,7 +215,11 @@ type EventAttr struct {
 	// bytes.
 	WakeupWatermark uint32
 
-	BranchSampleType uint64 // TODO: PERF_SAMPLE_BRANCH_*
+	// BranchSampleType specifies the types of branches to record
+	// in the branch stack if SampleFormat&SampleFormatBranchStack
+	// is set, as well as what information to record about each
+	// branch.
+	BranchSampleType BranchSampleType
 
 	// SampleRegsUser is a bitmask of user-space registers
 	// captured at each sample in RecordSample.RegsUser. The
@@ -220,6 +240,10 @@ type EventAttr struct {
 	// AuxWatermark is the watermark for the AUX area in bytes at
 	// which user space is woken up to collect the AUX area.
 	AuxWatermark uint32
+
+	// SampleMaxStack is the maximum number of frame pointers in a
+	// callchain. Should be < /proc/sys/kernel/perf_event_max_stack.
+	SampleMaxStack uint16
 }
 
 // A SampleFormat is a bitmask of the fields recorded by a sample.
@@ -228,6 +252,7 @@ type EventAttr struct {
 // include/uapi/linux/perf_event.h
 type SampleFormat uint64
 
+//gendefs perf_event_sample_format.PERF_SAMPLE_* SampleFormat -omit-max
 //go:generate go run ../cmd/bitstringer/main.go -type=SampleFormat -strip=SampleFormat
 
 const (
@@ -250,6 +275,7 @@ const (
 	SampleFormatIdentifier
 	SampleFormatTransaction
 	SampleFormatRegsIntr
+	SampleFormatPhysAddr
 )
 
 // sampleIDOffset returns the byte offset of the ID field within an
@@ -318,6 +344,7 @@ func (s SampleFormat) trailerBytes() int {
 // include/uapi/linux/perf_event.h
 type ReadFormat uint64
 
+//gendefs perf_event_read_format.PERF_FORMAT_* ReadFormat -omit-max
 //go:generate go run ../cmd/bitstringer/main.go -type=ReadFormat -strip=ReadFormat
 
 const (
@@ -333,6 +360,7 @@ const (
 // include/uapi/linux/perf_event.h
 type EventFlags uint64
 
+// TODO: gendefs (need to understand skip in the middle)
 //go:generate go run ../cmd/bitstringer/main.go -type=EventFlags -strip=EventFlag
 
 const (
@@ -382,6 +410,13 @@ const (
 	EventFlagCommExec
 	// Use clock specified by clockid for time fields
 	EventFlagClockID
+	// Record context switch data. Enables RecordTypeSwitch and
+	// RecordTypeSwitchCPUWide events.
+	EventFlagContextSwitch
+	// Write ring buffer from end to beginning.
+	EventFlagWriteBackward
+	// Include namespaces data.
+	EventFlagNamespaces
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
@@ -401,6 +436,45 @@ const (
 	EventPrecisionZeroSkip
 )
 
+// BranchSampleType is a bit-field of the types of branches to record
+// in the branch stack.
+//
+// This can include privilege levels to record, which can be different
+// from the privilege levels of the event being sampled. If none of
+// the privilege level bits are set, it defaults to the privilege
+// levels of the event.
+//
+//
+// This corresponds to the perf_branch_sample_type enum from
+// include/uapi/linux/perf_event.h
+type BranchSampleType uint64
+
+//gendefs perf_branch_sample_type.PERF_SAMPLE_BRANCH_* BranchSample BranchSampleType -omit-max
+//go:generate go run ../cmd/bitstringer/main.go -type=BranchSampleType -strip=BranchSample
+
+const (
+	BranchSampleUser   BranchSampleType = 1 << iota // User branches
+	BranchSampleKernel                              // Kernel branches
+	BranchSampleHV                                  // Hypervisor branches
+
+	BranchSampleAny       // Any branch types
+	BranchSampleAnyCall   // Any call branch
+	BranchSampleAnyReturn // Any return branch
+	BranchSampleIndCall   // Indirect calls
+	BranchSampleAbortTX   // Transaction aborts
+	BranchSampleInTX      // In transaction
+	BranchSampleNoTX      // Not in transaction
+	BranchSampleCond      // Conditional branches
+
+	BranchSampleCallStack // Call/ret stack
+	BranchSampleIndJump   // Indirect jumps
+	BranchSampleCall      // Direct call
+
+	BranchSampleNoFlags  // Don't set BranchRecord.Flags
+	BranchSampleNoCycles // Don't set BranchRecord.Cycles
+	BranchSampleTypeSave // Do set BranchRecord.Type
+)
+
 // perf_event_header from include/uapi/linux/perf_event.h
 type recordHeader struct {
 	Type RecordType
@@ -413,6 +487,7 @@ type recordHeader struct {
 // to system state, such as a process calling mmap.
 type RecordType uint32
 
+// TODO gendefs (mix of exported and unexported)
 //go:generate stringer -type=RecordType
 
 const (
@@ -427,6 +502,11 @@ const (
 	RecordTypeSample
 	recordTypeMmap2 // internal extended RecordTypeMmap
 	RecordTypeAux
+	RecordTypeItraceStart
+	RecordTypeLostSamples // TODO: How does this differ from RecordTypeLost?
+	RecordTypeSwitch
+	RecordTypeSwitchCPUWide
+	RecordTypeNamespaces
 
 	recordTypeUserStart RecordType = 64
 )
@@ -437,22 +517,47 @@ const (
 // direct parsing so they should never escape the API. Some of these
 // are only for perf.data pipes.
 const (
-	recordTypeHeaderAttr      RecordType = recordTypeUserStart + iota
-	recordTypeHeaderEventType            // deprecated
-	recordTypeHeaderTracingData
-	recordTypeHeaderBuildID
-	recordTypeHeaderFinishedRound
-	recordTypeHeaderIDIndex
+	recordTypeAttr      RecordType = recordTypeUserStart + iota
+	recordTypeEventType            // deprecated
+	recordTypeTracingData
+	recordTypeBuildID
+	recordTypeFinishedRound
+	recordTypeIDIndex
+	RecordTypeAuxtraceInfo // TODO
+	RecordTypeAuxtrace
+	RecordTypeAuxtraceError // TODO
+	recordTypeThreadMap
+	recordTypeCPUMap
+	recordTypeStatConfig
+	recordTypeStat
+	recordTypeStatRound
+	recordTypeEventUpdate
+	recordTypeTimeConv
+	recordTypeHeaderFeature
 )
 
 // PERF_RECORD_MISC_* from include/uapi/linux/perf_event.h
 type recordMisc uint16
 
+// TODO gendefs PERF_RECORD_MISC_* recordMisc -omit PERF_RECORD_MISC_CPUMODE_UNKNOWN -omit PERF_RECORD_MISC_KERNEL -omit PERF_RECORD_MISC_USER -omit PERF_RECORD_MISC_HYPERVISOR -omit PERF_RECORD_MISC_GUEST_KERNEL -omit PERF_RECORD_MISC_GUEST_USER
+// (macros)
+
 const (
-	recordMiscCPUModeMask recordMisc = 7
-	recordMiscMmapData               = 1 << 13
-	recordMiscCommExec               = 1 << 13
-	recordMiscExactIP                = 1 << 14
+	recordMiscCPUModeMask         recordMisc = 7
+	recordMiscProcMapParseTimeout            = 1 << 12 // /proc/PID/maps parsing was truncated by a time-out (TODO: What record is this set on?)
+	recordMiscMmapData                       = 1 << 13 // RecordTypeMmap* events
+	recordMiscCommExec                       = 1 << 13 // RecordTypeComm events
+	recordMiscSwitchOut                      = 1 << 13 // RecordTypeSwitch* events
+
+	// recordMiscExactIP applies to RecordTypeSample records. It
+	// indicates that the sample IP points to the actual
+	// instruction that triggered the event.
+	recordMiscExactIP = 1 << 14
+
+	// recordMiscSwitchOutPreempt applies to RecordTypeSwitch*
+	// records. It indicates that the thread was preempted in a
+	// TASK_RUNNING state.
+	recordMiscSwitchOutPreempt = 1 << 14
 )
 
 // Record is the common interface implemented by all profile record
@@ -612,6 +717,7 @@ func (r *RecordAux) Type() RecordType {
 // AuxFlags gives flags for an RecordAux event.
 type AuxFlags uint64
 
+//TODO gendefs PERF_AUX_FLAG_* AuxFlag AuxFlags (macros)
 //go:generate go run ../cmd/bitstringer/main.go -type=AuxFlags -strip=AuxFlag
 
 const (
@@ -621,7 +727,124 @@ const (
 	// AUX data was collected in overwrite mode, so the AUX buffer
 	// was treated as a circular ring buffer.
 	AuxFlagOverwrite
+
+	// Record contains gaps.
+	AuxFlagPartial
+
+	// Sample collided with another.
+	AuxFlagCollision
 )
+
+// A RecordItraceStart indicates that an instruction trace started.
+type RecordItraceStart struct {
+	// PID and TID will always be filled in.
+	RecordCommon
+}
+
+func (r *RecordItraceStart) Type() RecordType {
+	return RecordTypeItraceStart
+}
+
+// A RecordLostSamples records the number of dropped or lost samples.
+type RecordLostSamples struct {
+	RecordCommon
+
+	Lost uint64
+}
+
+func (r *RecordLostSamples) Type() RecordType {
+	return RecordTypeLostSamples
+}
+
+// A RecordSwitch records a context switch in or out of the monitored
+// process. See also RecordSwitchCPUWide.
+type RecordSwitch struct {
+	RecordCommon
+
+	// Out indicates this is a switch out. Otherwise, this is a
+	// switch in.
+	Out bool
+}
+
+func (r *RecordSwitch) Type() RecordType {
+	return RecordTypeSwitch
+}
+
+// RecordSwitchCPUWide is a CPU-wide version of RecordSwitch.
+type RecordSwitchCPUWide struct {
+	RecordCommon
+
+	// Out indicates this is a switch out. Otherwise, this is a
+	// switch in.
+	Out bool
+
+	// Preempt indicates that the preempted thread was in
+	// TASK_RUNNING state. That is, this was an involuntary
+	// preemption.
+	Preempt bool
+
+	// SwitchPID and SwitchTID are the PID and TID of the process
+	// being switched in or switched out.
+	SwitchPID, SwitchTID int
+}
+
+func (r *RecordSwitchCPUWide) Type() RecordType {
+	return RecordTypeSwitchCPUWide
+}
+
+type RecordNamespaces struct {
+	// PID and TID are always filled in.
+	RecordCommon
+
+	Namespaces []Namespace
+}
+
+func (r *RecordNamespaces) Type() RecordType {
+	return RecordTypeNamespaces
+}
+
+type Namespace struct {
+	Dev, Inode uint64
+}
+
+type RecordAuxtraceInfo struct {
+	RecordCommon
+
+	Kind uint32
+
+	Priv []uint64
+}
+
+func (r *RecordAuxtraceInfo) Type() RecordType {
+	return RecordTypeAuxtraceInfo
+}
+
+type RecordAuxtrace struct {
+	// TID and CPU are always filled in.
+	RecordCommon
+
+	// Offset is the byte offset of the aux data in the aux mmap.
+	// Not meaningful in perf data files.
+	Offset uint64
+
+	// Ref is a unique identifier for this auxtrace block.
+	//
+	// TODO: What's the point of this? Is it cross-referenced
+	// against something?
+	Ref uint64
+
+	// Idx is the index of the aux mmap region of this data.
+	// Not meaningful in perf data files.
+	Idx uint32
+
+	// Data is the raw auxiliary data. The encoding of this
+	// depends on the latest RecordAuxtraceInfo.
+	Data []byte
+}
+
+func (r *RecordAuxtrace) Type() RecordType {
+	return RecordTypeAuxtrace
+}
 
 // A RecordSample records a profiling sample event.
 //
@@ -686,6 +909,8 @@ type RecordSample struct {
 
 	Transaction Transaction // if SampleFormatTransaction
 	AbortCode   uint32      // if SampleFormatTransaction
+
+	PhysAddr uint64 // if SampleFormatPhysAddr
 }
 
 func (r *RecordSample) Type() RecordType {
@@ -806,6 +1031,9 @@ func (r *RecordSample) Fields() []string {
 	if f&SampleFormatTransaction != 0 {
 		fs = append(fs, "Transaction", "AbortCode")
 	}
+	if f&SampleFormatPhysAddr != 0 {
+		fs = append(fs, "PhysAddr")
+	}
 	return fs
 }
 
@@ -815,6 +1043,7 @@ func (r *RecordSample) Fields() []string {
 // include/uapi/linux/perf_event.h
 type CPUMode uint16
 
+// TODO: gendefs (need to extract from PERF_RECORD_MISC_* flags)
 //go:generate stringer -type=CPUMode
 
 const (
@@ -845,6 +1074,16 @@ type Count struct {
 type BranchRecord struct {
 	From, To uint64
 	Flags    BranchFlags
+
+	Cycles uint16 // Cycle count to last branch (or 0)
+
+	// Type is the type of branch instruction that caused this
+	// branch. If supported, this is set by the kernel by
+	// disassembling the branch instruction, since the binary
+	// itself may not be available at decoding time. This is only
+	// set if EventAttr.BranchSampleType&BranchSampleTypeSave is
+	// set in the event.
+	Type BranchType
 }
 
 type BranchFlags uint64
@@ -868,18 +1107,38 @@ const (
 	BranchFlagAbort
 )
 
+type BranchType uint8
+
+//gendefs PERF_BR_* BranchType -omit-max
+
+const (
+	BranchTypeUnknown  BranchType = iota // unknown
+	BranchTypeCond                       // conditional
+	BranchTypeUncond                     // unconditional
+	BranchTypeInd                        // indirect
+	BranchTypeCall                       // function call
+	BranchTypeIndCall                    // indirect function call
+	BranchTypeRet                        // function return
+	BranchTypeSyscall                    // syscall
+	BranchTypeSysret                     // syscall return
+	BranchTypeCondCall                   // conditional function call
+	BranchTypeCondRet                    // conditional function return
+)
+
+//gendefs perf_callchain_context.PERF_CONTEXT_* Callchain uint64 -omit-max
+
 // Special markers used in RecordSample.Callchain to mark boundaries
 // between types of stacks.
 //
 // These correspond to PERF_CONTEXT_* from
 // include/uapi/linux/perf_event.h
 const (
-	CallchainHypervisor  = 0xffffffffffffffe0 // -32
-	CallchainKernel      = 0xffffffffffffff80 // -128
-	CallchainUser        = 0xfffffffffffffe00 // -512
-	CallchainGuest       = 0xfffffffffffff800 // -2048
-	CallchainGuestKernel = 0xfffffffffffff780 // -2176
-	CallchainGuestUser   = 0xfffffffffffff600 // -2560
+	CallchainHV          uint64 = 0xffffffffffffffe0 // -32
+	CallchainKernel             = 0xffffffffffffff80 // -128
+	CallchainUser               = 0xfffffffffffffe00 // -512
+	CallchainGuest              = 0xfffffffffffff800 // -2048
+	CallchainGuestKernel        = 0xfffffffffffff780 // -2176
+	CallchainGuestUser          = 0xfffffffffffff600 // -2560
 )
 
 // SampleRegsABI indicates the register ABI of a given sample for
@@ -889,6 +1148,7 @@ const (
 // include/uapi/linux/perf_event.h
 type SampleRegsABI uint64
 
+//gendefs perf_sample_regs_abi.PERF_SAMPLE_REGS_ABI_* SampleRegsABI
 //go:generate stringer -type=SampleRegsABI
 
 const (
@@ -898,12 +1158,14 @@ const (
 )
 
 type DataSrc struct {
-	Op     DataSrcOp
-	Miss   bool // if true, Level specifies miss, rather than hit
-	Level  DataSrcLevel
-	Snoop  DataSrcSnoop
-	Locked DataSrcLock
-	TLB    DataSrcTLB
+	Op       DataSrcOp
+	Miss     bool // if true, Level specifies miss, rather than hit
+	Level    DataSrcLevel
+	Snoop    DataSrcSnoop
+	Locked   DataSrcLock
+	TLB      DataSrcTLB
+	LevelNum DataSrcLevelNum
+	Remote   bool
 }
 
 type DataSrcOp int
@@ -948,6 +1210,7 @@ const (
 	DataSrcSnoopHit
 	DataSrcSnoopMiss
 	DataSrcSnoopHitM // Snoop hit modified
+	DataSrcSnoopFwd
 
 	DataSrcSnoopNA DataSrcSnoop = 0
 )
@@ -977,8 +1240,28 @@ const (
 	DataSrcTLBNA DataSrcTLB = 0
 )
 
+type DataSrcLevelNum int
+
+// TODO gendefs (macros)
+//go:generate stringer -type=DataSrcLevelNum
+
+const (
+	DataSrcLevelNumL1       DataSrcLevelNum = 0x01 // L1
+	DataSrcLevelNumL2                       = 0x02 // L2
+	DataSrcLevelNumL3                       = 0x03 // L3
+	DataSrcLevelNumL4                       = 0x04 // L4
+	DataSrcLevelNumAnyCache                 = 0x0b // Any cache
+	DataSrcLevelNumLFB                      = 0x0c // LFB
+	DataSrcLevelNumRAM                      = 0x0d // RAM
+	DataSrcLevelNumPMEM                     = 0x0e // PMEM
+	DataSrcLevelNumNA                       = 0x0f // N/A
+)
+
 type Transaction int
 
+// TODO: Handle abort code mask
+
+//gendefs PERF_TXN_* Transaction -omit-max -omit PERF_TXN_ABORT_MASK -omit PERF_TXN_ABORT_SHIFT
 //go:generate go run ../cmd/bitstringer/main.go -type=Transaction -strip=Transaction
 
 const (

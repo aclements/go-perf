@@ -1,5 +1,12 @@
 package perffile
 
+/*gendefs:C
+#include <include/uapi/linux/perf_event.h>
+*/
+
+//go:generate stringer -type=EventHardware,EventSoftware,HWCache,HWCacheOp,HWCacheResult
+//go:generate go run ../cmd/bitstringer/main.go -type=BreakpointOp -strip=BreakpointOp
+
 // EventGeneric is a generic representation of a performance event.
 //
 // Any perf event can be represented by EventGeneric, but some
@@ -73,6 +80,8 @@ func (e eventUnknown) Generic() EventGeneric {
 // include/uapi/linux/perf_event.h
 type EventHardware uint64
 
+//gendefs perf_hw_id.PERF_COUNT_HW_* EventHardware -omit-max
+
 const (
 	EventHardwareCPUCycles EventHardware = iota
 	EventHardwareInstructions
@@ -92,9 +101,11 @@ func (e EventHardware) Generic() EventGeneric {
 
 // EventSoftware represents a software event.
 //
-// This corresponds to the perf_sw_id enum from
+// This corresponds to the perf_sw_ids enum from
 // include/uapi/linux/perf_event.h
 type EventSoftware uint64
+
+//gendefs perf_sw_ids.PERF_COUNT_SW_* EventSoftware -omit-max
 
 const (
 	EventSoftwareCPUClock EventSoftware = iota
@@ -102,11 +113,12 @@ const (
 	EventSoftwarePageFaults
 	EventSoftwareContextSwitches
 	EventSoftwareCPUMigrations
-	EventSoftwarePageFaultsMinor
-	EventSoftwarePageFaultsMajor
+	EventSoftwarePageFaultsMin
+	EventSoftwarePageFaultsMaj
 	EventSoftwareAlignmentFaults
 	EventSoftwareEmulationFaults
 	EventSoftwareDummy
+	EventSoftwareBpfOutput
 )
 
 func (e EventSoftware) Generic() EventGeneric {
@@ -141,7 +153,7 @@ func (e EventHWCache) Generic() EventGeneric {
 // include/uapi/linux/perf_event.h
 type HWCache uint8
 
-//go:generate stringer -type=HWCache
+//gendefs perf_hw_cache_id.PERF_COUNT_HW_CACHE_* HWCache -omit-max
 
 const (
 	HWCacheL1D HWCache = iota
@@ -159,7 +171,7 @@ const (
 // include/uapi/linux/perf_event.h
 type HWCacheOp uint8
 
-//go:generate stringer -type=HWCacheOp
+//gendefs perf_hw_cache_op_id.PERF_COUNT_HW_CACHE_OP_* HWCacheOp -omit-max
 
 const (
 	HWCacheOpRead HWCacheOp = iota
@@ -174,7 +186,7 @@ const (
 // include/uapi/linux/perf_event.h
 type HWCacheResult uint8
 
-//go:generate stringer -type=HWCacheResult
+//gendefs perf_hw_cache_op_result_id.PERF_COUNT_HW_CACHE_RESULT_* HWCacheResult -omit-max
 
 const (
 	HWCacheResultAccess HWCacheResult = iota

@@ -18,6 +18,9 @@ func (i EventFlags) String() string {
 	if i&EventFlagCommExec != 0 {
 		s += "CommExec|"
 	}
+	if i&EventFlagContextSwitch != 0 {
+		s += "ContextSwitch|"
+	}
 	if i&EventFlagDisabled != 0 {
 		s += "Disabled|"
 	}
@@ -69,6 +72,9 @@ func (i EventFlags) String() string {
 	if i&EventFlagMmapInodeData != 0 {
 		s += "MmapInodeData|"
 	}
+	if i&EventFlagNamespaces != 0 {
+		s += "Namespaces|"
+	}
 	if i&EventFlagPinned != 0 {
 		s += "Pinned|"
 	}
@@ -81,7 +87,10 @@ func (i EventFlags) String() string {
 	if i&EventFlagWakeupWatermark != 0 {
 		s += "WakeupWatermark|"
 	}
-	i &^= 67010559
+	if i&EventFlagWriteBackward != 0 {
+		s += "WriteBackward|"
+	}
+	i &^= 536772607
 	if i == 0 {
 		return s[:len(s)-1]
 	}

@@ -41,12 +41,14 @@ type Records struct {
 	buf []byte
 
 	// Cache for common record types
-	recordMmap   RecordMmap
-	recordComm   RecordComm
-	recordExit   RecordExit
-	recordFork   RecordFork
-	recordSample RecordSample
-	recordAux    RecordAux
+	recordMmap          RecordMmap
+	recordComm          RecordComm
+	recordExit          RecordExit
+	recordFork          RecordFork
+	recordSample        RecordSample
+	recordAux           RecordAux
+	recordSwitch        RecordSwitch
+	recordSwitchCPUWide RecordSwitchCPUWide
 }
 
 // Err returns the first error encountered by Records.
@@ -149,6 +151,30 @@ func (r *Records) Next() bool {
 
 	case RecordTypeAux:
 		r.Record = r.parseAux(bd, &hdr, &common)
+
+	case RecordTypeItraceStart:
+		r.Record = r.parseItraceStart(bd, &hdr, &common)
+
+	case RecordTypeLostSamples:
+		r.Record = r.parseLostSamples(bd, &hdr, &common)
+
+	case RecordTypeSwitch:
+		r.Record = r.parseSwitch(bd, &hdr, &common)
+
+	case RecordTypeSwitchCPUWide:
+		r.Record = r.parseSwitchCPUWide(bd, &hdr, &common)
+
+	case RecordTypeNamespaces:
+		r.Record = r.parseNamespaces(bd, &hdr, &common)
+
+	case RecordTypeAuxtraceInfo:
+		r.Record = r.parseAuxtraceInfo(bd, &hdr, &common)
+
+	case RecordTypeAuxtrace:
+		// Note: This appears to be the only record type that
+		// has additional payload data following it that isn't
+		// included in the header size.
+		r.Record = r.parseAuxtrace(bd, &hdr, &common)
 	}
 	if r.err != nil {
 		return false
@@ -160,7 +186,7 @@ func (r *Records) getAttr(id attrID, nilOk bool) *EventAttr {
 	// See perf_evlist__id2evsel in tools/perf/util/evlist.c.
 
 	// If there's only one event, all records implicitly use it.
-	if len(r.f.attrs) == 1 {
+	if len(r.f.attrs) == 1 || id == 0 {
 		return &r.f.attrs[0].Attr
 	}
 	// Otherwise, look up the event by ID.
@@ -305,6 +331,70 @@ func (r *Records) parseAux(bd *bufDecoder, hdr *recordHeader, common *RecordComm
 	return o
 }
 
+func (r *Records) parseItraceStart(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordItraceStart{RecordCommon: *common}
+	o.Format |= SampleFormatTID
+	o.PID, o.TID = int(bd.i32()), int(bd.i32())
+	return o
+}
+
+func (r *Records) parseLostSamples(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordLostSamples{RecordCommon: *common}
+	o.Lost = bd.u64()
+	return o
+}
+
+func (r *Records) parseSwitch(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &r.recordSwitch
+	o.RecordCommon = *common
+	o.Out = hdr.Misc&recordMiscSwitchOut != 0
+	return o
+}
+
+func (r *Records) parseSwitchCPUWide(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &r.recordSwitchCPUWide
+	o.RecordCommon = *common
+	o.SwitchPID, o.SwitchTID = int(bd.i32()), int(bd.i32())
+	o.Out = hdr.Misc&recordMiscSwitchOut != 0
+	o.Preempt = hdr.Misc&recordMiscSwitchOutPreempt != 0
+	return o
+}
+
+func (r *Records) parseNamespaces(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordNamespaces{RecordCommon: *common}
+	o.Format |= SampleFormatTID
+	o.PID, o.TID = int(bd.i32()), int(bd.i32())
+	n := bd.u64()
+	o.Namespaces = make([]Namespace, n)
+	for i := range o.Namespaces {
+		o.Namespaces[i] = Namespace{bd.u64(), bd.u64()}
+	}
+	return o
+}
+
+func (r *Records) parseAuxtraceInfo(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordAuxtraceInfo{RecordCommon: *common}
+	o.Kind = bd.u32()
+	bd.u32() // Alignment
+	// TODO: Decode remainder according to Kind
+	o.Priv = make([]uint64, len(bd.buf)/8)
+	bd.u64s(o.Priv)
+	return o
+}
+
+func (r *Records) parseAuxtrace(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordAuxtrace{RecordCommon: *common}
+	size := bd.u64()
+	o.Offset, o.Ref = bd.u64(), bd.u64()
+	o.Idx, o.TID, o.CPU = bd.u32(), int(bd.u32()), bd.u32()
+	o.Data = make([]byte, size)
+	if _, err := io.ReadFull(r.sr, o.Data); err != nil {
+		r.err = err
+		return nil
+	}
+	return o
+}
+
 func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
 	o := &r.recordSample
 	o.RecordCommon = *common
@@ -366,9 +456,16 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 			o.BranchStack = o.BranchStack[:count]
 		}
 		for i := range o.BranchStack {
-			o.BranchStack[i].From = bd.u64()
-			o.BranchStack[i].To = bd.u64()
-			o.BranchStack[i].Flags = BranchFlags(bd.u64())
+			br := &o.BranchStack[i]
+			br.From = bd.u64()
+			br.To = bd.u64()
+			flags := bd.u64()
+			// First 4 bits are flags
+			br.Flags = BranchFlags(flags & 0x0f)
+			// Next 16 bits are cycles
+			br.Cycles = uint16(flags >> 4)
+			// Next 4 bits are type
+			br.Type = BranchType((flags >> 20) & 0x0f)
 		}
 	}
 
@@ -426,6 +523,10 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 		}
 	}
 
+	if t&SampleFormatPhysAddr != 0 {
+		o.PhysAddr = bd.u64()
+	}
+
 	return o
 }
 
@@ -473,6 +574,9 @@ func decodeDataSrc(d uint64) (out DataSrc) {
 	snoop := (d >> 19) & 0x1f
 	lock := (d >> 24) & 0x3
 	dtlb := (d >> 26) & 0x7f
+	levelNum := (d >> 33) & 0xf
+	remote := (d >> 37) & 0x1
+	snoopX := (d >> 38) & 0x3 // two bit extension of snoop
 
 	if op&0x1 != 0 {
 		out.Op = DataSrcOpNA
@@ -491,6 +595,9 @@ func decodeDataSrc(d uint64) (out DataSrc) {
 		out.Snoop = DataSrcSnoopNA
 	} else {
 		out.Snoop = DataSrcSnoop(snoop >> 1)
+		if snoopX&0x1 != 0 {
+			out.Snoop |= DataSrcSnoopFwd
+		}
 	}
 
 	if lock&0x1 != 0 {
@@ -506,6 +613,9 @@ func decodeDataSrc(d uint64) (out DataSrc) {
 	} else {
 		out.TLB = DataSrcTLB(dtlb >> 1)
 	}
+
+	out.LevelNum = DataSrcLevelNum(levelNum)
+	out.Remote = remote != 0
 	return
 }
 

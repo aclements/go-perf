@@ -5,21 +5,21 @@ package perffile
 import "strconv"
 
 const (
-	_RecordType_name_0 = "RecordTypeMmapRecordTypeLostRecordTypeCommRecordTypeExitRecordTypeThrottleRecordTypeUnthrottleRecordTypeForkRecordTypeReadRecordTypeSamplerecordTypeMmap2RecordTypeAux"
-	_RecordType_name_1 = "recordTypeUserStartrecordTypeHeaderEventTyperecordTypeHeaderTracingDatarecordTypeHeaderBuildIDrecordTypeHeaderFinishedRoundrecordTypeHeaderIDIndex"
+	_RecordType_name_0 = "RecordTypeMmapRecordTypeLostRecordTypeCommRecordTypeExitRecordTypeThrottleRecordTypeUnthrottleRecordTypeForkRecordTypeReadRecordTypeSamplerecordTypeMmap2RecordTypeAuxRecordTypeItraceStartRecordTypeLostSamplesRecordTypeSwitchRecordTypeSwitchCPUWideRecordTypeNamespaces"
+	_RecordType_name_1 = "recordTypeUserStartrecordTypeEventTyperecordTypeTracingDatarecordTypeBuildIDrecordTypeFinishedRoundrecordTypeIDIndexRecordTypeAuxtraceInfoRecordTypeAuxtraceRecordTypeAuxtraceErrorrecordTypeThreadMaprecordTypeCPUMaprecordTypeStatConfigrecordTypeStatrecordTypeStatRoundrecordTypeEventUpdaterecordTypeTimeConvrecordTypeHeaderFeature"
 )
 
 var (
-	_RecordType_index_0 = [...]uint8{0, 14, 28, 42, 56, 74, 94, 108, 122, 138, 153, 166}
-	_RecordType_index_1 = [...]uint8{0, 19, 44, 71, 94, 123, 146}
+	_RecordType_index_0 = [...]uint16{0, 14, 28, 42, 56, 74, 94, 108, 122, 138, 153, 166, 187, 208, 224, 247, 267}
+	_RecordType_index_1 = [...]uint16{0, 19, 38, 59, 76, 99, 116, 138, 156, 179, 198, 214, 234, 248, 267, 288, 306, 329}
 )
 
 func (i RecordType) String() string {
 	switch {
-	case 1 <= i && i <= 11:
+	case 1 <= i && i <= 16:
 		i -= 1
 		return _RecordType_name_0[_RecordType_index_0[i]:_RecordType_index_0[i+1]]
-	case 64 <= i && i <= 69:
+	case 64 <= i && i <= 80:
 		i -= 64
 		return _RecordType_name_1[_RecordType_index_1[i]:_RecordType_index_1[i+1]]
 	default:

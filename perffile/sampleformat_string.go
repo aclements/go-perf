@@ -36,6 +36,9 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatPeriod != 0 {
 		s += "Period|"
 	}
+	if i&SampleFormatPhysAddr != 0 {
+		s += "PhysAddr|"
+	}
 	if i&SampleFormatRaw != 0 {
 		s += "Raw|"
 	}
@@ -66,7 +69,7 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatWeight != 0 {
 		s += "Weight|"
 	}
-	i &^= 524287
+	i &^= 1048575
 	if i == 0 {
 		return s[:len(s)-1]
 	}
