@@ -625,6 +625,8 @@
         var canvas = this.$.heatmap;
         canvas.width = bins.length * size;
         canvas.height = size;
+        if (maxVal === 0)
+          return;
         var ctx = canvas.getContext('2d');
         for (var i = 0; i < bins.length; i++) { //>
           var val = Math.pow(bins[i] / maxVal, 0.5);
