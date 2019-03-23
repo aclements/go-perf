@@ -135,7 +135,7 @@ func newSymbolicExtra(filename string) (*symbolicExtra, error) {
 	// TODO: Support build IDs and debug links
 	//
 	// TODO: Support DWARF for relocatable objects
-	if elff.Type == elf.ET_EXEC && elff.Section(".debug_info") != nil {
+	if elff.Type == elf.ET_EXEC && (elff.Section(".debug_info") != nil || elff.Section(".zdebug_info") != nil) {
 		dwarff, err := elff.DWARF()
 		if err != nil {
 			return nil, fmt.Errorf("error loading DWARF from %s: %s", filename, err)
