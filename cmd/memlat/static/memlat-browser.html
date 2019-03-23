@@ -542,7 +542,7 @@
           headTDs[i].style.width = spacerTDs[i].getBoundingClientRect().width + 'px';
       },
       _getQueryParams: function(filter, groupBy) {
-        var params = {groupBy: groupBy, limit: groupBy == 'annotation' ? 3 : 100};
+        var params = {groupBy: groupBy, limit: groupBy == 'annotation' ? 30 : 100};
         Object.keys(filter).forEach(function(key) {
           params[key] = filter[key];
         });

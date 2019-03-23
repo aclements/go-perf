@@ -6,7 +6,7 @@ import "time"
 
 func init() {
 	staticFiles = mapFS{
-	"/": {"/", time.Unix(0, 1441734449852723254), true, ``},
+	"/": {"/", time.Unix(0, 1553308639164562490), true, ``},
 	"/bower.json": {"/bower.json", time.Unix(0, 1440514094428199912), false, `{
   "name": "memlat",
   "version": "0.0.0",
@@ -35765,7 +35765,7 @@ if(4===i.readyState){var n=i.getResponseHeader("Location"),a=null;if(n)var a="/"
   </body>
 </html>
 `},
-	"/memlat-browser.html": {"/memlat-browser.html", time.Unix(0, 1441734449848723313), false, `<!-- Copyright 2015 The Go Authors. All rights reserved.
+	"/memlat-browser.html": {"/memlat-browser.html", time.Unix(0, 1553308639140562297), false, `<!-- Copyright 2015 The Go Authors. All rights reserved.
   -- Use of this source code is governed by a BSD-style
   -- license that can be found in the LICENSE file.
   -->
@@ -36309,7 +36309,7 @@ if(4===i.readyState){var n=i.getResponseHeader("Location"),a=null;if(n)var a="/"
           headTDs[i].style.width = spacerTDs[i].getBoundingClientRect().width + 'px';
       },
       _getQueryParams: function(filter, groupBy) {
-        var params = {groupBy: groupBy, limit: groupBy == 'annotation' ? 3 : 100};
+        var params = {groupBy: groupBy, limit: groupBy == 'annotation' ? 30 : 100};
         Object.keys(filter).forEach(function(key) {
           params[key] = filter[key];
         });
@@ -36392,6 +36392,8 @@ if(4===i.readyState){var n=i.getResponseHeader("Location"),a=null;if(n)var a="/"
         var canvas = this.$.heatmap;
         canvas.width = bins.length * size;
         canvas.height = size;
+        if (maxVal === 0)
+          return;
         var ctx = canvas.getContext('2d');
         for (var i = 0; i < bins.length; i++) { //>
           var val = Math.pow(bins[i] / maxVal, 0.5);

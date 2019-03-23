@@ -252,10 +252,6 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			hist, ok := groups[ipInfo]
 			if !ok {
 				hist = newHist()
-				if groupBy == "annotation" {
-					// Stripped out below.
-					hist.FuncName = ipInfo.funcName
-				}
 				hist.FileName = ipInfo.fileName
 				hist.Line = ipInfo.line
 				groups[ipInfo] = hist
@@ -322,12 +318,16 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Sort histograms by weight.
 	sort.Sort(sort.Reverse(weightSorter(histograms)))
 
-	switch groupBy {
-	default:
-		if limit != 0 && limit < len(histograms) {
-			histograms = histograms[:limit]
-		}
+	// Take the top N histograms.
+	if groupBy == "dataSrc" {
+		limit = 0
+	}
+	if limit != 0 && limit < len(histograms) {
+		histograms = histograms[:limit]
+	}
 
+	// Special processing for some grouping types.
+	switch groupBy {
 	case "dataSrc":
 		// Add group headers
 		for i := 0; i < len(histograms); i++ {
@@ -349,53 +349,23 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		// TODO: When loading profile, check for out-of-date
 		// source files and warn.
 
-		// TODO: This will do entirely the wrong thing for
-		// inlined functions, since the function name will be
-		// the outermost function, but we'll be combining line
-		// numbers that may come from different functions or
-		// even different files.
-
-		// Find the top N functions.
-		topFuncs := []string{}
-		topFuncSet := map[string][]*latencyHistogram{}
+		ranges := []sourceRange{}
+		histMap := map[ipInfo]*latencyHistogram{}
 		for _, hist := range histograms {
-			if len(topFuncs) >= limit {
-				break
-			}
-			if topFuncSet[hist.FuncName] == nil {
-				topFuncs = append(topFuncs, hist.FuncName)
-				topFuncSet[hist.FuncName] = []*latencyHistogram{}
-			}
+			ranges = append(ranges, sourceRange{hist.FileName, hist.Line, hist.Line + 1, hist.weight})
+			histMap[ipInfo{"", hist.FileName, hist.Line}] = hist
 		}
+		ranges = expandSourceRanges(ranges, 5)
 
-		// Collect all histograms from the top functions.
-		for _, hist := range histograms {
-			if topFuncSet[hist.FuncName] != nil {
-				topFuncSet[hist.FuncName] = append(topFuncSet[hist.FuncName], hist)
-			}
-			hist.FuncName = ""
-		}
+		// Sort ranges by max weight histogram.
+		sort.Slice(ranges, func(i, j int) bool {
+			return ranges[i].maxWeight > ranges[j].maxWeight
+		})
+
+		// Collect lines from ranges.
 		histograms = []*latencyHistogram{}
-
-		// Find the min and max line for each function.
-		for funcName, set := range topFuncSet {
-			minLine := set[0].Line
-			maxLine := minLine
-			haveLines := map[int]*latencyHistogram{}
-			for _, h := range set {
-				if h.Line < minLine {
-					minLine = h.Line
-				}
-				if h.Line > maxLine {
-					maxLine = h.Line
-				}
-				haveLines[h.Line] = h
-			}
-
-			// Read source lines and create empty histograms for
-			// lines we missed.
-			fileName := set[0].FileName
-			lines, err := getLines(fileName, minLine, maxLine)
+		for _, r := range ranges {
+			lines, r, err := getLines(r)
 			if err != nil {
 				log.Println(err)
 				continue
@@ -403,28 +373,25 @@ func (h *heatMapHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if len(lines) == 0 {
 				continue
 			}
-			for line := minLine; line <= maxLine; line++ {
-				hist := haveLines[line]
-				if hist == nil {
-					hist = newLatencyHistogram(&scaler)
-					set = append(set, hist)
-					hist.FileName = fileName
-					hist.Line = line
-					hist.Bins = nil
-				}
-				hist.Text = lines[line-minLine]
-			}
 
-			// Sort histograms by line number.
-			sort.Sort(lineSorter(set))
-
-			// Add function histograms to top-level list.
+			// Add a header for this range of source.
 			header := newLatencyHistogram(&scaler)
 			header.Bins = nil
-			header.Text = funcName
+			header.Text = r.file
 			header.IsHeader = true
 			histograms = append(histograms, header)
-			histograms = append(histograms, set...)
+
+			for i, text := range lines {
+				hist := histMap[ipInfo{"", r.file, r.start + i}]
+				if hist == nil {
+					hist = newLatencyHistogram(&scaler)
+					hist.FileName = r.file
+					hist.Line = r.start + i
+					hist.Bins = nil
+				}
+				hist.Text = text
+				histograms = append(histograms, hist)
+			}
 		}
 	}
 
@@ -534,45 +501,71 @@ func (w weightSorter) Swap(i, j int) {
 	w[i], w[j] = w[j], w[i]
 }
 
-type lineSorter []*latencyHistogram
-
-func (s lineSorter) Len() int {
-	return len(s)
+type sourceRange struct {
+	file       string
+	start, end int
+	maxWeight  int
 }
 
-func (s lineSorter) Less(i, j int) bool {
-	return s[i].Line < s[j].Line
+func expandSourceRanges(r []sourceRange, by int) []sourceRange {
+	sort.Slice(r, func(i, j int) bool {
+		if r[i].file != r[j].file {
+			return r[i].file < r[j].file
+		}
+		return r[i].start < r[j].start
+	})
+
+	// Expand ranges.
+	for i := range r {
+		r[i].start -= by
+		r[i].end += by
+	}
+
+	// Merge ranges.
+	i := 0
+	for j := 1; j < len(r); j++ {
+		if r[i].file == r[j].file && r[i].end >= r[j].start {
+			if r[j].end > r[i].end {
+				r[i].end = r[j].end
+			}
+			if r[j].maxWeight > r[i].maxWeight {
+				r[i].maxWeight = r[j].maxWeight
+			}
+		} else {
+			i++
+			r[i] = r[j]
+		}
+	}
+	return r[:i+1]
 }
 
-func (s lineSorter) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
+func getLines(r sourceRange) ([]string, sourceRange, error) {
+	lines := []string{}
 
-func getLines(path string, minLine, maxLine int) ([]string, error) {
-	lines := make([]string, maxLine-minLine+1)
-
-	file, err := os.Open(path)
+	file, err := os.Open(r.file)
 	if err != nil {
-		return nil, err
+		return nil, r, err
 	}
 	defer file.Close()
 
-	// Skip to minLine.
+	// Skip to start.
+	if r.start < 0 {
+		r.start = 0
+	}
 	scanner := bufio.NewScanner(file)
-	for i := 0; i < minLine && scanner.Scan(); i++ {
+	for i := 0; i < r.start && scanner.Scan(); i++ {
 		// Do nothing
 	}
 
-	for line := minLine; line <= maxLine && scanner.Err() == nil; line++ {
-		lines[line-minLine] = scanner.Text()
+	for i := 0; i < r.end-r.start && scanner.Err() == nil; i++ {
+		lines = append(lines, scanner.Text())
 		scanner.Scan()
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, r, err
 	}
 
-	return lines, nil
-
+	return lines, r, nil
 }
 
 type metadataHandler struct {
