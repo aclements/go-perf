@@ -69,7 +69,7 @@
 //    memlat
 //
 // memlat will parse and symbolize the profile and start a web server
-// listening by default on localhost;8001.
+// listening by default on localhost:8001.
 package main
 
 import (
