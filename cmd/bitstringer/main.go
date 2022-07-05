@@ -182,5 +182,6 @@ func (i %s) String() string {
 		return s[:len(s)-1]
 	}
 	return s + "0x" + strconv.FormatUint(uint64(i), 16)
-}`, have.ExactString())
+}
+`, have.ExactString())
 }
