@@ -417,6 +417,8 @@ const (
 	EventFlagWriteBackward
 	// Include namespaces data.
 	EventFlagNamespaces
+	// Include ksymbol events.
+	EventFlagKsymbol
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
@@ -506,6 +508,7 @@ const (
 	RecordTypeSwitch
 	RecordTypeSwitchCPUWide
 	RecordTypeNamespaces
+	RecordTypeKsymbol
 
 	recordTypeUserStart RecordType = 64
 )
@@ -806,6 +809,44 @@ func (r *RecordNamespaces) Type() RecordType {
 type Namespace struct {
 	Dev, Inode uint64
 }
+
+// RecordKsymbol record kernel symbol register/unregister information, for
+// dynamically loaded or JITed kernel functions.
+type RecordKsymbol struct {
+	RecordCommon
+
+	Addr     uint64
+	Len      uint32
+	KsymType KsymbolType
+	Flags    KsymbolFlags
+	Name     string
+}
+
+func (r *RecordKsymbol) Type() RecordType {
+	return RecordTypeKsymbol
+}
+
+type KsymbolType uint16
+
+//gendefs perf_record_ksymbol_type.PERF_RECORD_KSYMBOL_TYPE_* KsymbolType -omit-max
+//go:generate go run ../cmd/bitstringer/main.go -type=KsymbolType -strip=KsymbolType
+
+const (
+	KsymbolTypeUnknown KsymbolType = iota
+	KsymbolTypeBpf
+	KsymbolTypeOol
+)
+
+// KsymbolFlags gives flags for a RecordKsymbol event.
+type KsymbolFlags uint64
+
+// TODO gendefs PERF_RECORD_KSYMBOL_FLAGS_* KsymbolFlag KsymbolFlags (macros)
+//go:generate go run ../cmd/bitstringer/main.go -type=KsymbolFlags -strip=KsymbolFlag
+
+const (
+	// Ksymbol was unregistered.
+	KsymbolFlagUnregister KsymbolFlags = iota
+)
 
 type RecordAuxtraceInfo struct {
 	RecordCommon
