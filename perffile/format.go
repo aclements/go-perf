@@ -481,6 +481,7 @@ const (
 	BranchSampleNoFlags  // Don't set BranchRecord.Flags
 	BranchSampleNoCycles // Don't set BranchRecord.Cycles
 	BranchSampleTypeSave // Do set BranchRecord.Type
+	BranchSampleHWIndex  // Do set RecordSample.BranchHWIndex
 )
 
 // perf_event_header from include/uapi/linux/perf_event.h
@@ -959,6 +960,17 @@ type RecordSample struct {
 	// the first IP from each stack there will be a Callchain*
 	// constant indicating the stack type for the following IPs.
 	Callchain []uint64 // if SampleFormatCallchain
+
+	// BranchHWIndex is the low level index of the raw hardware branch
+	// record (e.g., LBR) for BranchStack[0].
+	//
+	// BranchStack is an abstraction of the raw hardware branch records,
+	// and the index of the raw entry can be very useful for stitching the
+	// stacks of multiple samples to reconstruct the call stack.
+	//
+	// The value is between -1 (unknown) and the max depth from
+	// /sys/devices/cpu/caps/branches.
+	BranchHWIndex int64 // if BranchSampleHWIndex
 
 	BranchStack []BranchRecord // if SampleFormatBranchStack
 
