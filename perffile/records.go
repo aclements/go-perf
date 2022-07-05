@@ -168,6 +168,9 @@ func (r *Records) Next() bool {
 	case RecordTypeNamespaces:
 		r.Record = r.parseNamespaces(bd, &hdr, &common)
 
+	case RecordTypeKsymbol:
+		r.Record = r.parseKsymbol(bd, &hdr, &common)
+
 	case RecordTypeAuxtraceInfo:
 		r.Record = r.parseAuxtraceInfo(bd, &hdr, &common)
 
@@ -370,6 +373,16 @@ func (r *Records) parseNamespaces(bd *bufDecoder, hdr *recordHeader, common *Rec
 	for i := range o.Namespaces {
 		o.Namespaces[i] = Namespace{bd.u64(), bd.u64()}
 	}
+	return o
+}
+
+func (r *Records) parseKsymbol(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordKsymbol{RecordCommon: *common}
+	o.Addr, o.Len = bd.u64(), bd.u32()
+	o.KsymType = KsymbolType(bd.u16())
+	o.Flags = KsymbolFlags(bd.u64())
+	o.Name = bd.cstring()
+
 	return o
 }
 
