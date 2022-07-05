@@ -4,6 +4,15 @@ package perffile
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[SampleRegsABINone-0]
+	_ = x[SampleRegsABI32-1]
+	_ = x[SampleRegsABI64-2]
+}
+
 const _SampleRegsABI_name = "SampleRegsABINoneSampleRegsABI32SampleRegsABI64"
 
 var _SampleRegsABI_index = [...]uint8{0, 17, 32, 47}

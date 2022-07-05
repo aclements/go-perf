@@ -4,6 +4,13 @@ package perffile
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[DataSrcLevelNumL1-1]
+}
+
 const _DataSrcLevelNum_name = "DataSrcLevelNumL1"
 
 var _DataSrcLevelNum_index = [...]uint8{0, 17}

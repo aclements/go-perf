@@ -4,6 +4,15 @@ package perffile
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[DataSrcLockNA-0]
+	_ = x[DataSrcLockUnlocked-1]
+	_ = x[DataSrcLockLocked-2]
+}
+
 const _DataSrcLock_name = "DataSrcLockNADataSrcLockUnlockedDataSrcLockLocked"
 
 var _DataSrcLock_index = [...]uint8{0, 13, 32, 49}

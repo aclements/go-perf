@@ -4,6 +4,22 @@ package perffile
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[EventHardwareCPUCycles-0]
+	_ = x[EventHardwareInstructions-1]
+	_ = x[EventHardwareCacheReferences-2]
+	_ = x[EventHardwareCacheMisses-3]
+	_ = x[EventHardwareBranchInstructions-4]
+	_ = x[EventHardwareBranchMisses-5]
+	_ = x[EventHardwareBusCycles-6]
+	_ = x[EventHardwareStalledCyclesFrontend-7]
+	_ = x[EventHardwareStalledCyclesBackend-8]
+	_ = x[EventHardwareRefCPUCycles-9]
+}
+
 const _EventHardware_name = "EventHardwareCPUCyclesEventHardwareInstructionsEventHardwareCacheReferencesEventHardwareCacheMissesEventHardwareBranchInstructionsEventHardwareBranchMissesEventHardwareBusCyclesEventHardwareStalledCyclesFrontendEventHardwareStalledCyclesBackendEventHardwareRefCPUCycles"
 
 var _EventHardware_index = [...]uint16{0, 22, 47, 75, 99, 130, 155, 177, 211, 244, 269}
@@ -13,6 +29,22 @@ func (i EventHardware) String() string {
 		return "EventHardware(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _EventHardware_name[_EventHardware_index[i]:_EventHardware_index[i+1]]
+}
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[EventSoftwareCPUClock-0]
+	_ = x[EventSoftwareTaskClock-1]
+	_ = x[EventSoftwarePageFaults-2]
+	_ = x[EventSoftwareContextSwitches-3]
+	_ = x[EventSoftwareCPUMigrations-4]
+	_ = x[EventSoftwarePageFaultsMin-5]
+	_ = x[EventSoftwarePageFaultsMaj-6]
+	_ = x[EventSoftwareAlignmentFaults-7]
+	_ = x[EventSoftwareEmulationFaults-8]
+	_ = x[EventSoftwareDummy-9]
+	_ = x[EventSoftwareBpfOutput-10]
 }
 
 const _EventSoftware_name = "EventSoftwareCPUClockEventSoftwareTaskClockEventSoftwarePageFaultsEventSoftwareContextSwitchesEventSoftwareCPUMigrationsEventSoftwarePageFaultsMinEventSoftwarePageFaultsMajEventSoftwareAlignmentFaultsEventSoftwareEmulationFaultsEventSoftwareDummyEventSoftwareBpfOutput"
@@ -25,6 +57,18 @@ func (i EventSoftware) String() string {
 	}
 	return _EventSoftware_name[_EventSoftware_index[i]:_EventSoftware_index[i+1]]
 }
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[HWCacheL1D-0]
+	_ = x[HWCacheL1I-1]
+	_ = x[HWCacheLL-2]
+	_ = x[HWCacheDTLB-3]
+	_ = x[HWCacheITLB-4]
+	_ = x[HWCacheBPU-5]
+	_ = x[HWCacheNode-6]
+}
 
 const _HWCache_name = "HWCacheL1DHWCacheL1IHWCacheLLHWCacheDTLBHWCacheITLBHWCacheBPUHWCacheNode"
 
@@ -36,6 +80,14 @@ func (i HWCache) String() string {
 	}
 	return _HWCache_name[_HWCache_index[i]:_HWCache_index[i+1]]
 }
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[HWCacheOpRead-0]
+	_ = x[HWCacheOpWrite-1]
+	_ = x[HWCacheOpPrefetch-2]
+}
 
 const _HWCacheOp_name = "HWCacheOpReadHWCacheOpWriteHWCacheOpPrefetch"
 
@@ -46,6 +98,13 @@ func (i HWCacheOp) String() string {
 		return "HWCacheOp(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _HWCacheOp_name[_HWCacheOp_index[i]:_HWCacheOp_index[i+1]]
+}
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[HWCacheResultAccess-0]
+	_ = x[HWCacheResultMiss-1]
 }
 
 const _HWCacheResult_name = "HWCacheResultAccessHWCacheResultMiss"

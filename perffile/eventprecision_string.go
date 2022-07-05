@@ -4,6 +4,16 @@ package perffile
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[EventPrecisionArbitrarySkid-0]
+	_ = x[EventPrecisionConstantSkid-1]
+	_ = x[EventPrecisionTryZeroSkid-2]
+	_ = x[EventPrecisionZeroSkip-3]
+}
+
 const _EventPrecision_name = "EventPrecisionArbitrarySkidEventPrecisionConstantSkidEventPrecisionTryZeroSkidEventPrecisionZeroSkip"
 
 var _EventPrecision_index = [...]uint8{0, 27, 53, 78, 100}
