@@ -25,7 +25,6 @@ process() {
     fi
 }
 
-process aux-defs.go
 process events.go
 process format.go
 rm gendefs
