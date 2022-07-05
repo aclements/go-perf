@@ -444,7 +444,6 @@ const (
 // the privilege level bits are set, it defaults to the privilege
 // levels of the event.
 //
-//
 // This corresponds to the perf_branch_sample_type enum from
 // include/uapi/linux/perf_event.h
 type BranchSampleType uint64

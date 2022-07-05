@@ -14,14 +14,15 @@ import (
 // Each record will be one of the Record* types.
 //
 // Typical usage is
-//    rs := file.Records()
-//    for rs.Next() {
-//      switch r := rs.Record.(type) {
-//      case *perffile.RecordSample:
-//        ...
-//      }
-//    }
-//    if rs.Err() { ... }
+//
+//	rs := file.Records()
+//	for rs.Next() {
+//	  switch r := rs.Record.(type) {
+//	  case *perffile.RecordSample:
+//	    ...
+//	  }
+//	}
+//	if rs.Err() { ... }
 type Records struct {
 	// The current record. The concrete type of this will be one
 	// of the Record* types. Determine which type of record this
