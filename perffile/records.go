@@ -475,6 +475,8 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 	rawSize := bd.u32If(t&SampleFormatRaw != 0)
 	bd.skip(int(rawSize))
 
+	o.BranchHWIndex = bd.i64If(o.EventAttr.BranchSampleType&BranchSampleHWIndex != 0)
+
 	if t&SampleFormatBranchStack != 0 {
 		count := int(bd.u64())
 		if o.BranchStack == nil || cap(o.BranchStack) < count {

@@ -33,6 +33,9 @@ func (i BranchSampleType) String() string {
 	if i&BranchSampleHV != 0 {
 		s += "HV|"
 	}
+	if i&BranchSampleHWIndex != 0 {
+		s += "HWIndex|"
+	}
 	if i&BranchSampleInTX != 0 {
 		s += "InTX|"
 	}
@@ -60,7 +63,7 @@ func (i BranchSampleType) String() string {
 	if i&BranchSampleUser != 0 {
 		s += "User|"
 	}
-	i &^= 131071
+	i &^= 262143
 	if i == 0 {
 		return s[:len(s)-1]
 	}

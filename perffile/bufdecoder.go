@@ -44,6 +44,12 @@ func (b *bufDecoder) u64() uint64 {
 	return x
 }
 
+func (b *bufDecoder) i64() int64 {
+	x := int64(b.order.Uint64(b.buf))
+	b.buf = b.buf[8:]
+	return x
+}
+
 func (b *bufDecoder) u64s(x []uint64) {
 	for i := range x {
 		x[i] = b.order.Uint64(b.buf[i*8:])
@@ -68,6 +74,13 @@ func (b *bufDecoder) i32If(cond bool) int32 {
 func (b *bufDecoder) u64If(cond bool) uint64 {
 	if cond {
 		return b.u64()
+	}
+	return 0
+}
+
+func (b *bufDecoder) i64If(cond bool) int64 {
+	if cond {
+		return b.i64()
 	}
 	return 0
 }
