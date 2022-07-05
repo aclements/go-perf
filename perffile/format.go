@@ -1341,6 +1341,8 @@ const (
 	BranchTypeSysret                     // syscall return
 	BranchTypeCondCall                   // conditional function call
 	BranchTypeCondRet                    // conditional function return
+	BranchTypeEret                       // exception return
+	BranchTypeIrq                        // interrupt
 )
 
 //gendefs perf_callchain_context.PERF_CONTEXT_* Callchain uint64 -omit-max
