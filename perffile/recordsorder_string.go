@@ -4,6 +4,15 @@ package perffile
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[RecordsFileOrder-0]
+	_ = x[RecordsCausalOrder-1]
+	_ = x[RecordsTimeOrder-2]
+}
+
 const _RecordsOrder_name = "RecordsFileOrderRecordsCausalOrderRecordsTimeOrder"
 
 var _RecordsOrder_index = [...]uint8{0, 16, 34, 50}

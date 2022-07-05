@@ -4,6 +4,18 @@ package perffile
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[CPUModeUnknown-0]
+	_ = x[CPUModeKernel-1]
+	_ = x[CPUModeUser-2]
+	_ = x[CPUModeHypervisor-3]
+	_ = x[CPUModeGuestKernel-4]
+	_ = x[CPUModeGuestUser-5]
+}
+
 const _CPUMode_name = "CPUModeUnknownCPUModeKernelCPUModeUserCPUModeHypervisorCPUModeGuestKernelCPUModeGuestUser"
 
 var _CPUMode_index = [...]uint8{0, 14, 27, 38, 55, 73, 89}
