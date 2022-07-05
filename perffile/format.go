@@ -546,6 +546,7 @@ const (
 	recordMiscProcMapParseTimeout            = 1 << 12 // /proc/PID/maps parsing was truncated by a time-out (TODO: What record is this set on?)
 	recordMiscMmapData                       = 1 << 13 // RecordTypeMmap* events
 	recordMiscCommExec                       = 1 << 13 // RecordTypeComm events
+	recordMiscForkExec                       = 1 << 13 // RecordTypeFork events (perf tool internal)
 	recordMiscSwitchOut                      = 1 << 13 // RecordTypeSwitch* events
 
 	// recordMiscExactIP applies to RecordTypeSample records. It
