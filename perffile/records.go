@@ -171,6 +171,9 @@ func (r *Records) Next() bool {
 	case RecordTypeKsymbol:
 		r.Record = r.parseKsymbol(bd, &hdr, &common)
 
+	case RecordTypeBPFEvent:
+		r.Record = r.parseBPFEvent(bd, &hdr, &common)
+
 	case RecordTypeAuxtraceInfo:
 		r.Record = r.parseAuxtraceInfo(bd, &hdr, &common)
 
@@ -382,6 +385,16 @@ func (r *Records) parseKsymbol(bd *bufDecoder, hdr *recordHeader, common *Record
 	o.KsymType = KsymbolType(bd.u16())
 	o.Flags = KsymbolFlags(bd.u64())
 	o.Name = bd.cstring()
+
+	return o
+}
+
+func (r *Records) parseBPFEvent(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordBPFEvent{RecordCommon: *common}
+	o.EventType = BPFEventType(bd.u16())
+	o.Flags = BPFEventFlags(bd.u16())
+	o.ID = bd.u32()
+	o.Tag = bd.u64()
 
 	return o
 }

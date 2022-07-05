@@ -509,6 +509,7 @@ const (
 	RecordTypeSwitchCPUWide
 	RecordTypeNamespaces
 	RecordTypeKsymbol
+	RecordTypeBPFEvent
 
 	recordTypeUserStart RecordType = 64
 )
@@ -847,6 +848,35 @@ const (
 	// Ksymbol was unregistered.
 	KsymbolFlagUnregister KsymbolFlags = iota
 )
+
+// RecordBPFEvent records BPF program load/unload information.
+type RecordBPFEvent struct {
+	RecordCommon
+
+	EventType BPFEventType
+	Flags     BPFEventFlags
+	ID        uint32
+	Tag       uint64
+}
+
+func (r *RecordBPFEvent) Type() RecordType {
+	return RecordTypeBPFEvent
+}
+
+type BPFEventType uint16
+
+// gendefs perf_bpf_event_type.PERF_BPF_EVENT_* BPFEventType -omit-max
+//go:generate go run ../cmd/bitstringer/main.go -type=BPFEventType -strip=BPFEventType
+
+const (
+	BPFEventTypeUnknown BPFEventType = iota
+	BPFEventTypeProgLoad
+	BPFEventTypeProgUnload
+)
+
+type BPFEventFlags uint16
+
+// No BPFEvent flags are defined yet.
 
 type RecordAuxtraceInfo struct {
 	RecordCommon
