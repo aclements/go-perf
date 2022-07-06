@@ -554,6 +554,18 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 		o.PhysAddr = bd.u64()
 	}
 
+	if t&SampleFormatAux != 0 {
+		auxLen := int(bd.u64())
+		if o.Aux == nil || cap(o.Aux) < auxLen {
+			o.Aux = make([]byte, auxLen)
+		} else {
+			o.Aux = o.Aux[:auxLen]
+		}
+		bd.bytes(o.Aux)
+	} else {
+		o.Aux = nil
+	}
+
 	return o
 }
 

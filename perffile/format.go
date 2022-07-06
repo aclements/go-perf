@@ -103,7 +103,7 @@ type eventAttrV0 struct {
 }
 
 // eventAttrVN is the on-disk latest version of the perf_event_attr
-// structure (currently version 5).
+// structure (currently version 6).
 type eventAttrVN struct {
 	eventAttrV0
 
@@ -129,6 +129,10 @@ type eventAttrVN struct {
 	AuxWatermark   uint32
 	SampleMaxStack uint16 // Max number of frame pointers in a callchain; should be < /proc/sys/kernel/perf_event_max_stack
 	Pad            uint16 // Align to uint64
+
+	// ABI v6
+	AuxSampleSize uint32 // Size of aux samples to include in SampleFormatAux.
+	Pad2          uint32 // Align to uint64
 }
 
 // TODO: Make public
@@ -276,6 +280,7 @@ const (
 	SampleFormatTransaction
 	SampleFormatRegsIntr
 	SampleFormatPhysAddr
+	SampleFormatAux
 )
 
 // sampleIDOffset returns the byte offset of the ID field within an
@@ -984,6 +989,8 @@ type RecordSample struct {
 	AbortCode   uint32      // if SampleFormatTransaction
 
 	PhysAddr uint64 // if SampleFormatPhysAddr
+
+	Aux []byte // if SampleFormatAux
 }
 
 func (r *RecordSample) Type() RecordType {
@@ -1048,6 +1055,9 @@ func (r *RecordSample) String() string {
 	if f&SampleFormatPhysAddr != 0 {
 		s += fmt.Sprintf(" PhysAddr:%#x", r.PhysAddr)
 	}
+	if f&SampleFormatAux != 0 {
+		s += fmt.Sprintf(" Aux:%v", r.Aux)
+	}
 	return s + "}"
 }
 
@@ -1109,6 +1119,9 @@ func (r *RecordSample) Fields() []string {
 	}
 	if f&SampleFormatPhysAddr != 0 {
 		fs = append(fs, "PhysAddr")
+	}
+	if f&SampleFormatAux != 0 {
+		fs = append(fs, "Aux")
 	}
 	return fs
 }

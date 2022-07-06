@@ -12,6 +12,9 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatAddr != 0 {
 		s += "Addr|"
 	}
+	if i&SampleFormatAux != 0 {
+		s += "Aux|"
+	}
 	if i&SampleFormatBranchStack != 0 {
 		s += "BranchStack|"
 	}
@@ -69,7 +72,7 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatWeight != 0 {
 		s += "Weight|"
 	}
-	i &^= 1048575
+	i &^= 2097151
 	if i == 0 {
 		return s[:len(s)-1]
 	}
