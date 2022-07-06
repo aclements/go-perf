@@ -690,6 +690,7 @@ func decodeDataSrc(d uint64) (out DataSrc) {
 	levelNum := (d >> 33) & 0xf
 	remote := (d >> 37) & 0x1
 	snoopX := (d >> 38) & 0x3 // two bit extension of snoop
+	blk := (d >> 40) & 0x7
 
 	if op&0x1 != 0 {
 		out.Op = DataSrcOpNA
@@ -729,6 +730,13 @@ func decodeDataSrc(d uint64) (out DataSrc) {
 
 	out.LevelNum = DataSrcLevelNum(levelNum)
 	out.Remote = remote != 0
+
+	if blk&0x1 != 0 {
+		out.Block = DataSrcBlockNA
+	} else {
+		out.Block = DataSrcBlock(blk >> 1)
+	}
+
 	return
 }
 
