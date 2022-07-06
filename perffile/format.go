@@ -1045,6 +1045,9 @@ func (r *RecordSample) String() string {
 	if f&SampleFormatTransaction != 0 {
 		s += fmt.Sprintf(" Transaction:%v AbortCode:%d", r.Transaction, r.AbortCode)
 	}
+	if f&SampleFormatPhysAddr != 0 {
+		s += fmt.Sprintf(" PhysAddr:%#x", r.PhysAddr)
+	}
 	return s + "}"
 }
 
