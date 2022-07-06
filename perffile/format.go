@@ -103,7 +103,7 @@ type eventAttrV0 struct {
 }
 
 // eventAttrVN is the on-disk latest version of the perf_event_attr
-// structure (currently version 6).
+// structure (currently version 7).
 type eventAttrVN struct {
 	eventAttrV0
 
@@ -133,6 +133,9 @@ type eventAttrVN struct {
 	// ABI v6
 	AuxSampleSize uint32 // Size of aux samples to include in SampleFormatAux.
 	Pad2          uint32 // Align to uint64
+
+	// ABI v7
+	SigData uint64 // User-provided data passed in sigcontext to SIGTRAP.
 }
 
 // TODO: Make public
@@ -440,6 +443,8 @@ const (
 	EventFlagInheritThread
 	// Event is removed from task on exec.
 	EventFlagRemoveOnExec
+	// Send synchronous SIGTRAP on event.
+	EventFlagSigtrap
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
