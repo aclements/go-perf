@@ -1385,6 +1385,7 @@ type DataSrc struct {
 	LevelNum DataSrcLevelNum
 	Remote   bool
 	Block    DataSrcBlock
+	Hops     DataSrcHops
 }
 
 type DataSrcOp int
@@ -1485,6 +1486,19 @@ const (
 	DataSrcBlockAddr                          // Address conflict
 
 	DataSrcBlockNA DataSrcBlock = 0
+)
+
+type DataSrcHops int
+
+//go:generate stringer -type=DataSrcHops
+
+const (
+	DataSrcHopsCore   DataSrcHops = 1 // Remote core, same node
+	DataSrcHopsNode   DataSrcHops = 3 // Remote node, same socket
+	DataSrcHopsSocket DataSrcHops = 3 // Remote socket, same board
+	DataSrcHopesBoard DataSrcHops = 4 // Remote board
+
+	DataSrcHopsNA DataSrcHops = 0
 )
 
 type Transaction int
