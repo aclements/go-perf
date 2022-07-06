@@ -405,6 +405,7 @@ var words = map[string]string{
 	"TX":   "TX",  // Transaction
 	"HV":   "HV",  // Hypervisor
 
+	"CGROUP":  "CGroup",
 	"CPUMODE": "CPUMode",
 }
 

@@ -281,6 +281,7 @@ const (
 	SampleFormatRegsIntr
 	SampleFormatPhysAddr
 	SampleFormatAux
+	SampleFormatCGroup
 )
 
 // sampleIDOffset returns the byte offset of the ID field within an
@@ -1017,6 +1018,8 @@ type RecordSample struct {
 
 	PhysAddr uint64 // if SampleFormatPhysAddr
 
+	CGroup uint64 // if SampleFormatCGroup
+
 	Aux []byte // if SampleFormatAux
 }
 
@@ -1085,6 +1088,9 @@ func (r *RecordSample) String() string {
 	if f&SampleFormatAux != 0 {
 		s += fmt.Sprintf(" Aux:%v", r.Aux)
 	}
+	if f&SampleFormatCGroup != 0 {
+		s += fmt.Sprintf(" CGroup:%d", r.CGroup)
+	}
 	return s + "}"
 }
 
@@ -1149,6 +1155,9 @@ func (r *RecordSample) Fields() []string {
 	}
 	if f&SampleFormatAux != 0 {
 		fs = append(fs, "Aux")
+	}
+	if f&SampleFormatCGroup != 0 {
+		fs = append(fs, "CGroup")
 	}
 	return fs
 }
