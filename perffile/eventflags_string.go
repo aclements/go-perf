@@ -93,6 +93,9 @@ func (i EventFlags) String() string {
 	if i&EventFlagPinned != 0 {
 		s += "Pinned|"
 	}
+	if i&EventFlagRemoveOnExec != 0 {
+		s += "RemoveOnExec|"
+	}
 	if i&EventFlagSampleIDAll != 0 {
 		s += "SampleIDAll|"
 	}
@@ -108,7 +111,7 @@ func (i EventFlags) String() string {
 	if i&EventFlagWriteBackward != 0 {
 		s += "WriteBackward|"
 	}
-	i &^= 34359640063
+	i &^= 68719378431
 	if i == 0 {
 		return s[:len(s)-1]
 	}
