@@ -1246,14 +1246,14 @@ type DataSrcLevelNum int
 
 const (
 	DataSrcLevelNumL1       DataSrcLevelNum = 0x01 // L1
-	DataSrcLevelNumL2                       = 0x02 // L2
-	DataSrcLevelNumL3                       = 0x03 // L3
-	DataSrcLevelNumL4                       = 0x04 // L4
-	DataSrcLevelNumAnyCache                 = 0x0b // Any cache
-	DataSrcLevelNumLFB                      = 0x0c // LFB
-	DataSrcLevelNumRAM                      = 0x0d // RAM
-	DataSrcLevelNumPMEM                     = 0x0e // PMEM
-	DataSrcLevelNumNA                       = 0x0f // N/A
+	DataSrcLevelNumL2       DataSrcLevelNum = 0x02 // L2
+	DataSrcLevelNumL3       DataSrcLevelNum = 0x03 // L3
+	DataSrcLevelNumL4       DataSrcLevelNum = 0x04 // L4
+	DataSrcLevelNumAnyCache DataSrcLevelNum = 0x0b // Any cache
+	DataSrcLevelNumLFB      DataSrcLevelNum = 0x0c // LFB
+	DataSrcLevelNumRAM      DataSrcLevelNum = 0x0d // RAM
+	DataSrcLevelNumPMEM     DataSrcLevelNum = 0x0e // PMEM
+	DataSrcLevelNumNA       DataSrcLevelNum = 0x0f // N/A
 )
 
 type Transaction int
