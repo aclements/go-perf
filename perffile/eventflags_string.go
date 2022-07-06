@@ -93,13 +93,16 @@ func (i EventFlags) String() string {
 	if i&EventFlagTask != 0 {
 		s += "Task|"
 	}
+	if i&EventFlagTextPoke != 0 {
+		s += "TextPoke|"
+	}
 	if i&EventFlagWakeupWatermark != 0 {
 		s += "WakeupWatermark|"
 	}
 	if i&EventFlagWriteBackward != 0 {
 		s += "WriteBackward|"
 	}
-	i &^= 4294868991
+	i &^= 8589836287
 	if i == 0 {
 		return s[:len(s)-1]
 	}
