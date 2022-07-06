@@ -45,11 +45,12 @@ func _() {
 	_ = x[EventSoftwareEmulationFaults-8]
 	_ = x[EventSoftwareDummy-9]
 	_ = x[EventSoftwareBpfOutput-10]
+	_ = x[EventSoftwareCGroupSwitches-11]
 }
 
-const _EventSoftware_name = "EventSoftwareCPUClockEventSoftwareTaskClockEventSoftwarePageFaultsEventSoftwareContextSwitchesEventSoftwareCPUMigrationsEventSoftwarePageFaultsMinEventSoftwarePageFaultsMajEventSoftwareAlignmentFaultsEventSoftwareEmulationFaultsEventSoftwareDummyEventSoftwareBpfOutput"
+const _EventSoftware_name = "EventSoftwareCPUClockEventSoftwareTaskClockEventSoftwarePageFaultsEventSoftwareContextSwitchesEventSoftwareCPUMigrationsEventSoftwarePageFaultsMinEventSoftwarePageFaultsMajEventSoftwareAlignmentFaultsEventSoftwareEmulationFaultsEventSoftwareDummyEventSoftwareBpfOutputEventSoftwareCGroupSwitches"
 
-var _EventSoftware_index = [...]uint16{0, 21, 43, 66, 94, 120, 146, 172, 200, 228, 246, 268}
+var _EventSoftware_index = [...]uint16{0, 21, 43, 66, 94, 120, 146, 172, 200, 228, 246, 268, 295}
 
 func (i EventSoftware) String() string {
 	if i >= EventSoftware(len(_EventSoftware_index)-1) {

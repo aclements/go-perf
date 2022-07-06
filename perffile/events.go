@@ -119,6 +119,7 @@ const (
 	EventSoftwareEmulationFaults
 	EventSoftwareDummy
 	EventSoftwareBpfOutput
+	EventSoftwareCGroupSwitches
 )
 
 func (e EventSoftware) Generic() EventGeneric {
