@@ -438,6 +438,8 @@ const (
 	EventFlagBuildID
 	// Children only inherit if cloned with CLONE_THREAD.
 	EventFlagInheritThread
+	// Event is removed from task on exec.
+	EventFlagRemoveOnExec
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
