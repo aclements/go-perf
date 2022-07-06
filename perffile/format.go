@@ -741,6 +741,7 @@ type RecordAux struct {
 
 	Offset, Size uint64
 	Flags        AuxFlags
+	PMUFormat    AuxPMUFormat
 }
 
 func (r *RecordAux) Type() RecordType {
@@ -766,6 +767,19 @@ const (
 
 	// Sample collided with another.
 	AuxFlagCollision
+)
+
+// AuxPMUFormat is the PMU specific trace format type. Values are architecture dependent.
+type AuxPMUFormat uint8
+
+//go:generate stringer -type=AuxPMUFormat
+
+const (
+	// ARM
+	AuxPMUFormatCoresightCoresight AuxPMUFormat = 0 // ARM Coresight format CORESIGHT.
+	AuxPMUFormatCoresightRaw       AuxPMUFormat = 1 // ARM Coresight format RAW.
+
+	AuxPMUFormatDefault AuxPMUFormat = 0
 )
 
 // A RecordItraceStart indicates that an instruction trace started.
