@@ -71,10 +71,10 @@ type FileMeta struct {
 	// the machine that recorded this profile, or nil if unknown.
 	NUMANodes []NUMANode
 
-	// PMUMappings is a map from numerical EventType to name for
+	// PMUMappings is a map from numerical PMUTypeID to name for
 	// event classes supported by the machine that recorded this
 	// profile, or nil if unknown.
-	PMUMappings map[EventType]string
+	PMUMappings map[PMUTypeID]string
 
 	// Groups is the descriptions of each perf event group in this
 	// profile, or nil if unknown.
@@ -248,9 +248,9 @@ func (m *FileMeta) parseNUMATopology(bd bufDecoder) error {
 
 func (m *FileMeta) parsePMUMappings(bd bufDecoder) error {
 	count := bd.u32()
-	m.PMUMappings = map[EventType]string{}
+	m.PMUMappings = map[PMUTypeID]string{}
 	for i := uint32(0); i < count; i++ {
-		m.PMUMappings[EventType(bd.u32())] = bd.lenString()
+		m.PMUMappings[PMUTypeID(bd.u32())] = bd.lenString()
 	}
 	return nil
 }
