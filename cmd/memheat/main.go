@@ -78,8 +78,12 @@ func main() {
 				}
 				ipToInfo[r.IP] = line
 			}
-			line.weights = append(line.weights, r.Weight)
-			line.totalWeight += r.Weight
+			weight := r.Weight
+			if weight == 0 {
+				weight = uint64(r.Weights.Var1)
+			}
+			line.weights = append(line.weights, weight)
+			line.totalWeight += weight
 		}
 	}
 

@@ -574,7 +574,20 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 		o.StackUserDynSize = 0
 	}
 
-	o.Weight = bd.u64If(t&SampleFormatWeight != 0)
+	if t&SampleFormatWeight != 0 {
+		o.Weight = bd.u64()
+		o.Weights = Weights{}
+	} else if t&SampleFormatWeightStruct != 0 {
+		o.Weight = 0
+		// N.B. the kernel memcpys the 64-bit union value regardless of
+		// format, so on big endian systems the fields appear in the
+		// opposite order. Read as a 64-bit value and extract the
+		// fields to handle both little and big endian.
+		weight := bd.u64()
+		o.Weights.Var1 = uint32(weight)
+		o.Weights.Var2 = uint16(weight >> 32)
+		o.Weights.Var3 = uint16(weight >> 48)
+	}
 
 	if t&SampleFormatDataSrc != 0 {
 		o.DataSrc = decodeDataSrc(bd.u64())

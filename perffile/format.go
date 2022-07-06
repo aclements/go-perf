@@ -284,6 +284,7 @@ const (
 	SampleFormatCGroup
 	SampleFormatDataPageSize
 	SampleFormatCodePageSize
+	SampleFormatWeightStruct
 )
 
 // sampleIDOffset returns the byte offset of the ID field within an
@@ -1041,6 +1042,8 @@ type RecordSample struct {
 	StackUserDynSize uint64 // if SampleFormatStackUser
 
 	Weight  uint64  // if SampleFormatWeight
+	Weights Weights // if SampleFormatWeightStruct
+
 	DataSrc DataSrc // if SampleFormatDataSrc
 
 	Transaction Transaction // if SampleFormatTransaction
@@ -1130,6 +1133,9 @@ func (r *RecordSample) String() string {
 	if f&SampleFormatCodePageSize != 0 {
 		s += fmt.Sprintf(" CodePageSize:%#x", r.CodePageSize)
 	}
+	if f&SampleFormatWeightStruct != 0 {
+		s += fmt.Sprintf(" Weights:%v", r.Weights)
+	}
 	return s + "}"
 }
 
@@ -1203,6 +1209,9 @@ func (r *RecordSample) Fields() []string {
 	}
 	if f&SampleFormatCodePageSize != 0 {
 		fs = append(fs, "CodePageSize")
+	}
+	if f&SampleFormatWeightStruct != 0 {
+		fs = append(fs, "WeightStruct")
 	}
 	return fs
 }
@@ -1444,3 +1453,9 @@ const (
 	TransactionCapacityWrite                         // Capactiy write abort
 	TransactionCapacityRead                          // Capactiy read abort
 )
+
+type Weights struct {
+	Var1 uint32
+	Var2 uint16
+	Var3 uint16
+}
