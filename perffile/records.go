@@ -256,8 +256,26 @@ func (r *Records) parseMmap(bd *bufDecoder, hdr *recordHeader, common *RecordCom
 	o.PID, o.TID = int(bd.i32()), int(bd.i32())
 	o.Addr, o.Len, o.FileOffset = bd.u64(), bd.u64(), bd.u64()
 	if v2 {
-		o.Major, o.Minor = bd.u32(), bd.u32()
-		o.Ino, o.InoGeneration = bd.u64(), bd.u64()
+		buildID := (hdr.Misc&recordMiscMmapBuildID != 0)
+		if buildID {
+			buildIDLen := int(bd.u8())
+			if o.BuildID == nil || cap(o.BuildID) < buildIDLen {
+				o.BuildID = make([]byte, buildIDLen)
+			} else {
+				o.BuildID = o.BuildID[:buildIDLen]
+			}
+			bd.skip(3)
+			bd.bytes(o.BuildID)
+
+			o.Major, o.Minor = 0, 0
+			o.Ino, o.InoGeneration = 0, 0
+		} else {
+			o.Major, o.Minor = bd.u32(), bd.u32()
+			o.Ino, o.InoGeneration = bd.u64(), bd.u64()
+
+			o.BuildID = nil
+		}
+
 		o.Prot, o.Flags = bd.u32(), bd.u32()
 	}
 	o.Filename = bd.cstring()

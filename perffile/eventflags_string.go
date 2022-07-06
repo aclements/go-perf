@@ -12,6 +12,9 @@ func (i EventFlags) String() string {
 	if i&EventFlagAuxOutput != 0 {
 		s += "AuxOutput|"
 	}
+	if i&EventFlagBuildID != 0 {
+		s += "BuildID|"
+	}
 	if i&EventFlagCGroup != 0 {
 		s += "CGroup|"
 	}
@@ -102,7 +105,7 @@ func (i EventFlags) String() string {
 	if i&EventFlagWriteBackward != 0 {
 		s += "WriteBackward|"
 	}
-	i &^= 8589836287
+	i &^= 17179770879
 	if i == 0 {
 		return s[:len(s)-1]
 	}

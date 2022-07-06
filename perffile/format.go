@@ -433,6 +433,8 @@ const (
 	EventFlagCGroup
 	// Include text poke events.
 	EventFlagTextPoke
+	// Use build ID in mmap2 events instead of inode.
+	EventFlagBuildID
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
@@ -579,6 +581,11 @@ const (
 	// records. It indicates that the thread was preempted in a
 	// TASK_RUNNING state.
 	recordMiscSwitchOutPreempt = 1 << 14
+
+	// recordMiscMmapBuildID applies to recordTypeMmap2 records. It
+	// indicates that the event contain build ID data rather than inode
+	// data.
+	recordMiscMmapBuildID = 1 << 14
 )
 
 // Record is the common interface implemented by all profile record
@@ -644,11 +651,15 @@ type RecordMmap struct {
 	Addr, Len uint64
 	// FileOffset is the byte offset in the mapped file of the
 	// beginning of this mapping.
-	FileOffset         uint64
-	Major, Minor       uint32
-	Ino, InoGeneration uint64
-	Prot, Flags        uint32
-	Filename           string
+	FileOffset uint64
+
+	Major, Minor       uint32 // if !EventFlagBuildID
+	Ino, InoGeneration uint64 // if !EventFlagBuildID
+
+	BuildID []byte // if EventFlagBuildID
+
+	Prot, Flags uint32
+	Filename    string
 }
 
 func (r *RecordMmap) Type() RecordType {
