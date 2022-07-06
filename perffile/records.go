@@ -706,6 +706,7 @@ func decodeDataSrc(d uint64) (out DataSrc) {
 	remote := (d >> 37) & 0x1
 	snoopX := (d >> 38) & 0x3 // two bit extension of snoop
 	blk := (d >> 40) & 0x7
+	hops := (d >> 43) & 0x7
 
 	if op&0x1 != 0 {
 		out.Op = DataSrcOpNA
@@ -751,6 +752,8 @@ func decodeDataSrc(d uint64) (out DataSrc) {
 	} else {
 		out.Block = DataSrcBlock(blk >> 1)
 	}
+
+	out.Hops = DataSrcHops(hops)
 
 	return
 }
