@@ -99,6 +99,9 @@ func (i EventFlags) String() string {
 	if i&EventFlagSampleIDAll != 0 {
 		s += "SampleIDAll|"
 	}
+	if i&EventFlagSigtrap != 0 {
+		s += "Sigtrap|"
+	}
 	if i&EventFlagTask != 0 {
 		s += "Task|"
 	}
@@ -111,7 +114,7 @@ func (i EventFlags) String() string {
 	if i&EventFlagWriteBackward != 0 {
 		s += "WriteBackward|"
 	}
-	i &^= 68719378431
+	i &^= 137438855167
 	if i == 0 {
 		return s[:len(s)-1]
 	}
