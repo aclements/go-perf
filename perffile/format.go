@@ -426,6 +426,8 @@ const (
 	EventFlagKsymbol
 	// Generate aux records instead of events.
 	EventFlagAuxOutput
+	// Include cgroup events.
+	EventFlagCGroup
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
@@ -518,6 +520,7 @@ const (
 	RecordTypeNamespaces
 	RecordTypeKsymbol
 	RecordTypeBPFEvent
+	RecordTypeCGroup
 
 	recordTypeUserStart RecordType = 64
 )
@@ -885,6 +888,18 @@ const (
 type BPFEventFlags uint16
 
 // No BPFEvent flags are defined yet.
+
+// RecordCGroup records the assosciation between a cgroup id and path.
+type RecordCGroup struct {
+	RecordCommon
+
+	ID   uint32
+	Path string
+}
+
+func (r *RecordCGroup) Type() RecordType {
+	return RecordTypeCGroup
+}
 
 type RecordAuxtraceInfo struct {
 	RecordCommon

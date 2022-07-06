@@ -174,6 +174,9 @@ func (r *Records) Next() bool {
 	case RecordTypeBPFEvent:
 		r.Record = r.parseBPFEvent(bd, &hdr, &common)
 
+	case RecordTypeCGroup:
+		r.Record = r.parseCGroup(bd, &hdr, &common)
+
 	case RecordTypeAuxtraceInfo:
 		r.Record = r.parseAuxtraceInfo(bd, &hdr, &common)
 
@@ -395,6 +398,14 @@ func (r *Records) parseBPFEvent(bd *bufDecoder, hdr *recordHeader, common *Recor
 	o.Flags = BPFEventFlags(bd.u16())
 	o.ID = bd.u32()
 	o.Tag = bd.u64()
+
+	return o
+}
+
+func (r *Records) parseCGroup(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordCGroup{RecordCommon: *common}
+	o.ID = bd.u32()
+	o.Path = bd.cstring()
 
 	return o
 }
