@@ -357,7 +357,13 @@ func (r *Records) parseAux(bd *bufDecoder, hdr *recordHeader, common *RecordComm
 	o.RecordCommon = *common
 
 	o.Offset, o.Size = bd.u64(), bd.u64()
-	o.Flags = AuxFlags(bd.u64())
+
+	flags := bd.u64()
+	format := (flags & 0xff00) >> 8
+	flags &^= 0xff00
+
+	o.Flags = AuxFlags(flags)
+	o.PMUFormat = AuxPMUFormat(format)
 
 	return o
 }
