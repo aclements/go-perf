@@ -4,7 +4,7 @@ package perffile
 #include <include/uapi/linux/perf_event.h>
 */
 
-//go:generate stringer -type=EventHardware,EventSoftware,HWCache,HWCacheOp,HWCacheResult
+//go:generate stringer -type=EventHardwareID,EventSoftware,HWCache,HWCacheOp,HWCacheResult
 //go:generate go run ../cmd/bitstringer/main.go -type=BreakpointOp -strip=BreakpointOp
 
 // EventGeneric is a generic representation of a performance event.
@@ -37,7 +37,10 @@ type EventGeneric struct {
 func (g *EventGeneric) Decode() Event {
 	switch g.Type {
 	case EventTypeHardware:
-		return EventHardware(g.ID)
+		return EventHardware{
+			ID:        EventHardwareID(g.ID),
+			PMUTypeID: PMUTypeID(g.ID >> 32),
+		}
 
 	case EventTypeSoftware:
 		return EventSoftware(g.ID)
@@ -47,9 +50,10 @@ func (g *EventGeneric) Decode() Event {
 
 	case EventTypeHWCache:
 		return EventHWCache{
-			HWCache(g.ID),
-			HWCacheOp(g.ID >> 8),
-			HWCacheResult(g.ID >> 16),
+			Level:     HWCache(g.ID),
+			Op:        HWCacheOp(g.ID >> 8),
+			Result:    HWCacheResult(g.ID >> 16),
+			PMUTypeID: uint32(g.ID >> 32),
 		}
 
 	case EventTypeRaw:
@@ -75,29 +79,40 @@ func (e eventUnknown) Generic() EventGeneric {
 }
 
 // EventHardware represents a hardware event.
+type EventHardware struct {
+	ID        EventHardwareID
+	PMUTypeID PMUTypeID // Map back to name with FileMeta.PMUMappings
+}
+
+func (e EventHardware) Generic() EventGeneric {
+	id := uint64(e.ID) | uint64(e.PMUTypeID)<<32
+	return EventGeneric{Type: EventTypeHardware, ID: id}
+}
+
+// EventHardwareID represents a hardware event type.
 //
 // This corresponds to the perf_hw_id enum from
 // include/uapi/linux/perf_event.h
-type EventHardware uint64
+type EventHardwareID uint8
 
-//gendefs perf_hw_id.PERF_COUNT_HW_* EventHardware -omit-max
+//gendefs perf_hw_id.PERF_COUNT_HW_* EventHardwareID -omit-max
 
 const (
-	EventHardwareCPUCycles EventHardware = iota
-	EventHardwareInstructions
-	EventHardwareCacheReferences
-	EventHardwareCacheMisses
-	EventHardwareBranchInstructions
-	EventHardwareBranchMisses
-	EventHardwareBusCycles
-	EventHardwareStalledCyclesFrontend
-	EventHardwareStalledCyclesBackend
-	EventHardwareRefCPUCycles
+	EventHardwareIDCPUCycles EventHardwareID = iota
+	EventHardwareIDInstructions
+	EventHardwareIDCacheReferences
+	EventHardwareIDCacheMisses
+	EventHardwareIDBranchInstructions
+	EventHardwareIDBranchMisses
+	EventHardwareIDBusCycles
+	EventHardwareIDStalledCyclesFrontend
+	EventHardwareIDStalledCyclesBackend
+	EventHardwareIDRefCPUCycles
 )
 
-func (e EventHardware) Generic() EventGeneric {
-	return EventGeneric{Type: EventTypeHardware, ID: uint64(e)}
-}
+// PMUTypeID is a kernel-assigned type id assigned on PMU registration, visible
+// at /sys/bus/event_source/devices/$PMU/type.
+type PMUTypeID uint32
 
 // EventSoftware represents a software event.
 //
@@ -138,13 +153,14 @@ func (e EventTracepoint) Generic() EventGeneric {
 
 // EventHWCache represents a hardware cache event.
 type EventHWCache struct {
-	Level  HWCache
-	Op     HWCacheOp
-	Result HWCacheResult
+	Level     HWCache
+	Op        HWCacheOp
+	Result    HWCacheResult
+	PMUTypeID uint32
 }
 
 func (e EventHWCache) Generic() EventGeneric {
-	id := uint64(e.Level) | uint64(e.Op)<<8 | uint64(e.Result)<<16
+	id := uint64(e.Level) | uint64(e.Op)<<8 | uint64(e.Result)<<16 | uint64(e.PMUTypeID)<<32
 	return EventGeneric{Type: EventTypeHWCache, ID: id}
 }
 
