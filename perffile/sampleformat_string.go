@@ -81,7 +81,10 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatWeight != 0 {
 		s += "Weight|"
 	}
-	i &^= 16777215
+	if i&SampleFormatWeightStruct != 0 {
+		s += "WeightStruct|"
+	}
+	i &^= 33554431
 	if i == 0 {
 		return s[:len(s)-1]
 	}
