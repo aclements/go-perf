@@ -283,6 +283,7 @@ const (
 	SampleFormatAux
 	SampleFormatCGroup
 	SampleFormatDataPageSize
+	SampleFormatCodePageSize
 )
 
 // sampleIDOffset returns the byte offset of the ID field within an
@@ -1039,6 +1040,7 @@ type RecordSample struct {
 	CGroup uint64 // if SampleFormatCGroup
 
 	DataPageSize uint64 // if SampleFormatDataPageSize
+	CodePageSize uint64 // if SampleFormatCodePageSize
 
 	Aux []byte // if SampleFormatAux
 }
@@ -1114,6 +1116,9 @@ func (r *RecordSample) String() string {
 	if f&SampleFormatDataPageSize != 0 {
 		s += fmt.Sprintf(" DataPageSize:%#x", r.DataPageSize)
 	}
+	if f&SampleFormatCodePageSize != 0 {
+		s += fmt.Sprintf(" CodePageSize:%#x", r.CodePageSize)
+	}
 	return s + "}"
 }
 
@@ -1184,6 +1189,9 @@ func (r *RecordSample) Fields() []string {
 	}
 	if f&SampleFormatDataPageSize != 0 {
 		fs = append(fs, "DataPageSize")
+	}
+	if f&SampleFormatCodePageSize != 0 {
+		fs = append(fs, "CodePageSize")
 	}
 	return fs
 }
