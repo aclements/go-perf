@@ -18,6 +18,9 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatBranchStack != 0 {
 		s += "BranchStack|"
 	}
+	if i&SampleFormatCGroup != 0 {
+		s += "CGroup|"
+	}
 	if i&SampleFormatCPU != 0 {
 		s += "CPU|"
 	}
@@ -72,7 +75,7 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatWeight != 0 {
 		s += "Weight|"
 	}
-	i &^= 2097151
+	i &^= 4194303
 	if i == 0 {
 		return s[:len(s)-1]
 	}
