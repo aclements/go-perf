@@ -436,6 +436,8 @@ const (
 	EventFlagTextPoke
 	// Use build ID in mmap2 events instead of inode.
 	EventFlagBuildID
+	// Children only inherit if cloned with CLONE_THREAD.
+	EventFlagInheritThread
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift

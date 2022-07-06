@@ -72,6 +72,9 @@ func (i EventFlags) String() string {
 	if i&EventFlagInheritStat != 0 {
 		s += "InheritStat|"
 	}
+	if i&EventFlagInheritThread != 0 {
+		s += "InheritThread|"
+	}
 	if i&EventFlagKsymbol != 0 {
 		s += "Ksymbol|"
 	}
@@ -105,7 +108,7 @@ func (i EventFlags) String() string {
 	if i&EventFlagWriteBackward != 0 {
 		s += "WriteBackward|"
 	}
-	i &^= 17179770879
+	i &^= 34359640063
 	if i == 0 {
 		return s[:len(s)-1]
 	}
