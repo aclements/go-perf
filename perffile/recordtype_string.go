@@ -28,6 +28,7 @@ func _() {
 	_ = x[RecordTypeBPFEvent-18]
 	_ = x[RecordTypeCGroup-19]
 	_ = x[RecordTypeTextPoke-20]
+	_ = x[RecordTypeAuxOutputHardwareID-21]
 	_ = x[recordTypeUserStart-64]
 	_ = x[recordTypeAttr-64]
 	_ = x[recordTypeEventType-65]
@@ -49,18 +50,18 @@ func _() {
 }
 
 const (
-	_RecordType_name_0 = "RecordTypeMmapRecordTypeLostRecordTypeCommRecordTypeExitRecordTypeThrottleRecordTypeUnthrottleRecordTypeForkRecordTypeReadRecordTypeSamplerecordTypeMmap2RecordTypeAuxRecordTypeItraceStartRecordTypeLostSamplesRecordTypeSwitchRecordTypeSwitchCPUWideRecordTypeNamespacesRecordTypeKsymbolRecordTypeBPFEventRecordTypeCGroupRecordTypeTextPoke"
+	_RecordType_name_0 = "RecordTypeMmapRecordTypeLostRecordTypeCommRecordTypeExitRecordTypeThrottleRecordTypeUnthrottleRecordTypeForkRecordTypeReadRecordTypeSamplerecordTypeMmap2RecordTypeAuxRecordTypeItraceStartRecordTypeLostSamplesRecordTypeSwitchRecordTypeSwitchCPUWideRecordTypeNamespacesRecordTypeKsymbolRecordTypeBPFEventRecordTypeCGroupRecordTypeTextPokeRecordTypeAuxOutputHardwareID"
 	_RecordType_name_1 = "recordTypeUserStartrecordTypeEventTyperecordTypeTracingDatarecordTypeBuildIDrecordTypeFinishedRoundrecordTypeIDIndexRecordTypeAuxtraceInfoRecordTypeAuxtraceRecordTypeAuxtraceErrorrecordTypeThreadMaprecordTypeCPUMaprecordTypeStatConfigrecordTypeStatrecordTypeStatRoundrecordTypeEventUpdaterecordTypeTimeConvrecordTypeHeaderFeature"
 )
 
 var (
-	_RecordType_index_0 = [...]uint16{0, 14, 28, 42, 56, 74, 94, 108, 122, 138, 153, 166, 187, 208, 224, 247, 267, 284, 302, 318, 336}
+	_RecordType_index_0 = [...]uint16{0, 14, 28, 42, 56, 74, 94, 108, 122, 138, 153, 166, 187, 208, 224, 247, 267, 284, 302, 318, 336, 365}
 	_RecordType_index_1 = [...]uint16{0, 19, 38, 59, 76, 99, 116, 138, 156, 179, 198, 214, 234, 248, 267, 288, 306, 329}
 )
 
 func (i RecordType) String() string {
 	switch {
-	case 1 <= i && i <= 20:
+	case 1 <= i && i <= 21:
 		i -= 1
 		return _RecordType_name_0[_RecordType_index_0[i]:_RecordType_index_0[i+1]]
 	case 64 <= i && i <= 80:
