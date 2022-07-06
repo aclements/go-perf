@@ -429,6 +429,8 @@ const (
 	EventFlagAuxOutput
 	// Include cgroup events.
 	EventFlagCGroup
+	// Include text poke events.
+	EventFlagTextPoke
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift
@@ -522,6 +524,7 @@ const (
 	RecordTypeKsymbol
 	RecordTypeBPFEvent
 	RecordTypeCGroup
+	RecordTypeTextPoke
 
 	recordTypeUserStart RecordType = 64
 )
@@ -900,6 +903,20 @@ type RecordCGroup struct {
 
 func (r *RecordCGroup) Type() RecordType {
 	return RecordTypeCGroup
+}
+
+// RecordTextPoke records single instruction changes to the kernel text. This
+// event records the address modified and the old and new code.
+type RecordTextPoke struct {
+	RecordCommon
+
+	Addr uint64
+	Old  []byte
+	New  []byte
+}
+
+func (r *RecordTextPoke) Type() RecordType {
+	return RecordTypeTextPoke
 }
 
 type RecordAuxtraceInfo struct {

@@ -177,6 +177,9 @@ func (r *Records) Next() bool {
 	case RecordTypeCGroup:
 		r.Record = r.parseCGroup(bd, &hdr, &common)
 
+	case RecordTypeTextPoke:
+		r.Record = r.parseTextPoke(bd, &hdr, &common)
+
 	case RecordTypeAuxtraceInfo:
 		r.Record = r.parseAuxtraceInfo(bd, &hdr, &common)
 
@@ -406,6 +409,21 @@ func (r *Records) parseCGroup(bd *bufDecoder, hdr *recordHeader, common *RecordC
 	o := &RecordCGroup{RecordCommon: *common}
 	o.ID = bd.u32()
 	o.Path = bd.cstring()
+
+	return o
+}
+
+func (r *Records) parseTextPoke(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordTextPoke{RecordCommon: *common}
+	o.Addr = bd.u64()
+
+	oldLen, newLen := bd.u16(), bd.u16()
+
+	o.Old = make([]byte, oldLen)
+	bd.bytes(o.Old)
+
+	o.New = make([]byte, newLen)
+	bd.bytes(o.New)
 
 	return o
 }
