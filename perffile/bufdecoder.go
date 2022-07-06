@@ -20,6 +20,12 @@ func (b *bufDecoder) bytes(x []byte) {
 	b.buf = b.buf[len(x):]
 }
 
+func (b *bufDecoder) u8() uint8 {
+	x := b.buf[0]
+	b.buf = b.buf[1:]
+	return x
+}
+
 func (b *bufDecoder) u16() uint16 {
 	x := b.order.Uint16(b.buf)
 	b.buf = b.buf[2:]
