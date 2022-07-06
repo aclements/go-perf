@@ -419,6 +419,8 @@ const (
 	EventFlagNamespaces
 	// Include ksymbol events.
 	EventFlagKsymbol
+	// Generate aux records instead of events.
+	EventFlagAuxOutput
 
 	eventFlagPreciseShift = 15
 	eventFlagPreciseMask  = 0x3 << eventFlagPreciseShift

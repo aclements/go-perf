@@ -9,6 +9,9 @@ func (i EventFlags) String() string {
 		return "0"
 	}
 	s := ""
+	if i&EventFlagAuxOutput != 0 {
+		s += "AuxOutput|"
+	}
 	if i&EventFlagClockID != 0 {
 		s += "ClockID|"
 	}
@@ -93,7 +96,7 @@ func (i EventFlags) String() string {
 	if i&EventFlagWriteBackward != 0 {
 		s += "WriteBackward|"
 	}
-	i &^= 1073643519
+	i &^= 2147385343
 	if i == 0 {
 		return s[:len(s)-1]
 	}
