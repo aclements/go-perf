@@ -27,6 +27,9 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatCallchain != 0 {
 		s += "Callchain|"
 	}
+	if i&SampleFormatDataPageSize != 0 {
+		s += "DataPageSize|"
+	}
 	if i&SampleFormatDataSrc != 0 {
 		s += "DataSrc|"
 	}
@@ -75,7 +78,7 @@ func (i SampleFormat) String() string {
 	if i&SampleFormatWeight != 0 {
 		s += "Weight|"
 	}
-	i &^= 4194303
+	i &^= 8388607
 	if i == 0 {
 		return s[:len(s)-1]
 	}

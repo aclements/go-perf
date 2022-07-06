@@ -589,6 +589,10 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 		o.CGroup = bd.u64()
 	}
 
+	if t&SampleFormatDataPageSize != 0 {
+		o.DataPageSize = bd.u64()
+	}
+
 	if t&SampleFormatAux != 0 {
 		auxLen := int(bd.u64())
 		if o.Aux == nil || cap(o.Aux) < auxLen {
