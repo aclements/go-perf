@@ -1345,6 +1345,7 @@ type DataSrc struct {
 	TLB      DataSrcTLB
 	LevelNum DataSrcLevelNum
 	Remote   bool
+	Block    DataSrcBlock
 }
 
 type DataSrcOp int
@@ -1434,6 +1435,17 @@ const (
 	DataSrcLevelNumRAM      DataSrcLevelNum = 0x0d // RAM
 	DataSrcLevelNumPMEM     DataSrcLevelNum = 0x0e // PMEM
 	DataSrcLevelNumNA       DataSrcLevelNum = 0x0f // N/A
+)
+
+type DataSrcBlock int
+
+//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcBlock -strip=DataSrcBlock
+
+const (
+	DataSrcBlockData DataSrcBlock = 1 << iota // Data could not be forwarded
+	DataSrcBlockAddr                          // Address conflict
+
+	DataSrcBlockNA DataSrcBlock = 0
 )
 
 type Transaction int
