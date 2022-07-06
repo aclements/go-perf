@@ -180,6 +180,9 @@ func (r *Records) Next() bool {
 	case RecordTypeTextPoke:
 		r.Record = r.parseTextPoke(bd, &hdr, &common)
 
+	case RecordTypeAuxOutputHardwareID:
+		r.Record = r.parseAuxOutputHardwareID(bd, &hdr, &common)
+
 	case RecordTypeAuxtraceInfo:
 		r.Record = r.parseAuxtraceInfo(bd, &hdr, &common)
 
@@ -449,6 +452,12 @@ func (r *Records) parseTextPoke(bd *bufDecoder, hdr *recordHeader, common *Recor
 	o.New = make([]byte, newLen)
 	bd.bytes(o.New)
 
+	return o
+}
+
+func (r *Records) parseAuxOutputHardwareID(bd *bufDecoder, hdr *recordHeader, common *RecordCommon) Record {
+	o := &RecordAuxOutputHardwareID{RecordCommon: *common}
+	o.ID = bd.u64()
 	return o
 }
 

@@ -539,6 +539,7 @@ const (
 	RecordTypeBPFEvent
 	RecordTypeCGroup
 	RecordTypeTextPoke
+	RecordTypeAuxOutputHardwareID
 
 	recordTypeUserStart RecordType = 64
 )
@@ -954,6 +955,21 @@ type RecordTextPoke struct {
 
 func (r *RecordTextPoke) Type() RecordType {
 	return RecordTypeTextPoke
+}
+
+// RecordAuxOutputHardwareID records an archtecture-specific hardware ID
+// assosciated with the aux data for this event ID.
+//
+// e.g., this is used to disambiguate different PEBS event types from each
+// other when using PEBS-via-PT.
+type RecordAuxOutputHardwareID struct {
+	RecordCommon
+
+	ID uint64
+}
+
+func (r *RecordAuxOutputHardwareID) Type() RecordType {
+	return RecordTypeAuxOutputHardwareID
 }
 
 type RecordAuxtraceInfo struct {
