@@ -1250,7 +1250,7 @@ func (r *RecordSample) Fields() []string {
 		fs = append(fs, "CodePageSize")
 	}
 	if f&SampleFormatWeightStruct != 0 {
-		fs = append(fs, "WeightStruct")
+		fs = append(fs, "Weights")
 	}
 	return fs
 }
