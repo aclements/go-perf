@@ -4,8 +4,10 @@ package perffile
 #include <include/uapi/linux/perf_event.h>
 */
 
+//go:generate -command bitstringer ../cmd/bitstringer/bitstringer
+
 //go:generate stringer -type=EventHardwareID,EventSoftware,HWCache,HWCacheOp,HWCacheResult
-//go:generate go run ../cmd/bitstringer/main.go -type=BreakpointOp -strip=BreakpointOp
+//go:generate bitstringer -type=BreakpointOp -strip=BreakpointOp
 
 // EventGeneric is a generic representation of a performance event.
 //

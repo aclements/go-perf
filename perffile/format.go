@@ -13,6 +13,8 @@ import (
 #include <include/uapi/linux/perf_event.h>
 */
 
+//go:generate -command bitstringer ../cmd/bitstringer/bitstringer
+
 const numFeatureBits = 256
 
 // perf_file_header from tools/perf/util/header.h
@@ -260,7 +262,7 @@ type EventAttr struct {
 type SampleFormat uint64
 
 //gendefs perf_event_sample_format.PERF_SAMPLE_* SampleFormat -omit-max
-//go:generate go run ../cmd/bitstringer/main.go -type=SampleFormat -strip=SampleFormat
+//go:generate bitstringer -type=SampleFormat -strip=SampleFormat
 
 const (
 	SampleFormatIP SampleFormat = 1 << iota
@@ -357,7 +359,7 @@ func (s SampleFormat) trailerBytes() int {
 type ReadFormat uint64
 
 //gendefs perf_event_read_format.PERF_FORMAT_* ReadFormat -omit-max
-//go:generate go run ../cmd/bitstringer/main.go -type=ReadFormat -strip=ReadFormat
+//go:generate bitstringer -type=ReadFormat -strip=ReadFormat
 
 const (
 	ReadFormatTotalTimeEnabled ReadFormat = 1 << iota
@@ -373,7 +375,7 @@ const (
 type EventFlags uint64
 
 // TODO: gendefs (need to understand skip in the middle)
-//go:generate go run ../cmd/bitstringer/main.go -type=EventFlags -strip=EventFlag
+//go:generate bitstringer -type=EventFlags -strip=EventFlag
 
 const (
 	// Event is disabled by default
@@ -477,7 +479,7 @@ const (
 type BranchSampleType uint64
 
 //gendefs perf_branch_sample_type.PERF_SAMPLE_BRANCH_* BranchSample BranchSampleType -omit-max
-//go:generate go run ../cmd/bitstringer/main.go -type=BranchSampleType -strip=BranchSample
+//go:generate bitstringer -type=BranchSampleType -strip=BranchSample
 
 const (
 	BranchSampleUser   BranchSampleType = 1 << iota // User branches
@@ -762,7 +764,7 @@ func (r *RecordAux) Type() RecordType {
 type AuxFlags uint64
 
 //TODO gendefs PERF_AUX_FLAG_* AuxFlag AuxFlags (macros)
-//go:generate go run ../cmd/bitstringer/main.go -type=AuxFlags -strip=AuxFlag
+//go:generate bitstringer -type=AuxFlags -strip=AuxFlag
 
 const (
 	// Record was truncated to fit in the ring buffer.
@@ -883,7 +885,7 @@ func (r *RecordKsymbol) Type() RecordType {
 type KsymbolType uint16
 
 //gendefs perf_record_ksymbol_type.PERF_RECORD_KSYMBOL_TYPE_* KsymbolType -omit-max
-//go:generate go run ../cmd/bitstringer/main.go -type=KsymbolType -strip=KsymbolType
+//go:generate bitstringer -type=KsymbolType -strip=KsymbolType
 
 const (
 	KsymbolTypeUnknown KsymbolType = iota
@@ -895,7 +897,7 @@ const (
 type KsymbolFlags uint64
 
 // TODO gendefs PERF_RECORD_KSYMBOL_FLAGS_* KsymbolFlag KsymbolFlags (macros)
-//go:generate go run ../cmd/bitstringer/main.go -type=KsymbolFlags -strip=KsymbolFlag
+//go:generate bitstringer -type=KsymbolFlags -strip=KsymbolFlag
 
 const (
 	// Ksymbol was unregistered.
@@ -919,7 +921,7 @@ func (r *RecordBPFEvent) Type() RecordType {
 type BPFEventType uint16
 
 // gendefs perf_bpf_event_type.PERF_BPF_EVENT_* BPFEventType -omit-max
-//go:generate go run ../cmd/bitstringer/main.go -type=BPFEventType -strip=BPFEventType
+//go:generate bitstringer -type=BPFEventType -strip=BPFEventType
 
 const (
 	BPFEventTypeUnknown BPFEventType = iota
@@ -1306,7 +1308,7 @@ type BranchRecord struct {
 
 type BranchFlags uint64
 
-//go:generate go run ../cmd/bitstringer/main.go -type=BranchFlags -strip=BranchFlag
+//go:generate bitstringer -type=BranchFlags -strip=BranchFlag
 
 const (
 	// BranchFlagMispredicted indicates branch target was mispredicted.
@@ -1392,7 +1394,7 @@ type DataSrc struct {
 
 type DataSrcOp int
 
-//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcOp -strip=DataSrcOp
+//go:generate bitstringer -type=DataSrcOp -strip=DataSrcOp
 
 const (
 	DataSrcOpLoad DataSrcOp = 1 << iota
@@ -1405,7 +1407,7 @@ const (
 
 type DataSrcLevel int
 
-//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcLevel -strip=DataSrcLevel
+//go:generate bitstringer -type=DataSrcLevel -strip=DataSrcLevel
 
 const (
 	DataSrcLevelL1  DataSrcLevel = 1 << iota
@@ -1425,7 +1427,7 @@ const (
 
 type DataSrcSnoop int
 
-//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcSnoop -strip=DataSrcSnoop
+//go:generate bitstringer -type=DataSrcSnoop -strip=DataSrcSnoop
 
 const (
 	DataSrcSnoopNone DataSrcSnoop = 1 << iota
@@ -1449,7 +1451,7 @@ const (
 
 type DataSrcTLB int
 
-//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcTLB -strip=DataSrcTLB
+//go:generate bitstringer -type=DataSrcTLB -strip=DataSrcTLB
 
 const (
 	DataSrcTLBHit DataSrcTLB = 1 << iota
@@ -1481,7 +1483,7 @@ const (
 
 type DataSrcBlock int
 
-//go:generate go run ../cmd/bitstringer/main.go -type=DataSrcBlock -strip=DataSrcBlock
+//go:generate bitstringer -type=DataSrcBlock -strip=DataSrcBlock
 
 const (
 	DataSrcBlockData DataSrcBlock = 1 << iota // Data could not be forwarded
@@ -1508,7 +1510,7 @@ type Transaction int
 // TODO: Handle abort code mask
 
 //gendefs PERF_TXN_* Transaction -omit-max -omit PERF_TXN_ABORT_MASK -omit PERF_TXN_ABORT_SHIFT
-//go:generate go run ../cmd/bitstringer/main.go -type=Transaction -strip=Transaction
+//go:generate bitstringer -type=Transaction -strip=Transaction
 
 const (
 	TransactionElision       Transaction = 1 << iota // From elision
