@@ -9,6 +9,8 @@ import (
 )
 
 func TestFindEnums(t *testing.T) {
+	needCC(t)
+
 	pp := preprocess(t, "int foo(); enum tag { A, B = 2 + (C, D), E };")
 	toks, err := Tokenize(pp)
 	if err != nil {

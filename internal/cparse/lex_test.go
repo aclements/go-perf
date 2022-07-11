@@ -9,6 +9,8 @@ import (
 )
 
 func TestTokenize(t *testing.T) {
+	needCC(t)
+
 	pp := preprocess(t, "#include <stdio.h>")
 	toks, err := Tokenize(pp)
 	if err != nil {

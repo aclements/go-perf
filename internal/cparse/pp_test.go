@@ -6,12 +6,15 @@ package cparse
 
 import (
 	"bytes"
+	"os/exec"
 	"testing"
 )
 
 var defaultEnv = BuildEnv{}
 
 func TestMacros(t *testing.T) {
+	needCC(t)
+
 	src := bytes.NewBufferString("#define TEST 123\n#define EMPTY")
 	macros, err := FindMacros(&defaultEnv, src)
 	if err != nil {
@@ -28,7 +31,18 @@ outer:
 	}
 }
 
+func needCC(t *testing.T) {
+	t.Helper()
+
+	const bin = "cc"
+	if _, err := exec.LookPath(bin); err != nil {
+		t.Skipf("need %s binary in PATH", bin)
+	}
+}
+
 func preprocess(t *testing.T, src string) []byte {
+	t.Helper()
+
 	sb := bytes.NewBufferString(src)
 	pp, err := Preprocess(&defaultEnv, sb)
 	if err != nil {

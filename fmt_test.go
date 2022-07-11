@@ -61,7 +61,7 @@ func copyTree(t *testing.T) (string, map[string]string) {
 	dst := t.TempDir()
 
 	// Ensure src ends with "/"
-	src = filepath.Clean(src) + "/"
+	src = fmt.Sprintf("%s%c", filepath.Clean(src), filepath.Separator)
 
 	fileMap := make(map[string]string)
 	err = filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
