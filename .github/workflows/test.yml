@@ -12,4 +12,5 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - uses: actions/checkout@v3
+    - run: go install golang.org/x/tools/cmd/stringer@latest
     - run: go test ./...
