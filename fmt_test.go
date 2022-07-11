@@ -123,7 +123,9 @@ func copyFile(src, dst string) error {
 func diffFiles(t *testing.T, fileMap map[string]string) bool {
 	diffs := 0
 	for orig, new := range fileMap {
-		diff := exec.Command("diff", "-u", orig, new)
+		// --strip-trailing-cr is important on Windows where
+		// git and gofmt may disagree on newline conventions.
+		diff := exec.Command("diff", "-u", "--strip-trailing-cr", orig, new)
 		diff.Stdout = os.Stdout
 		diff.Stderr = os.Stderr
 		if err := diff.Run(); err != nil {
