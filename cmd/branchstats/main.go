@@ -174,7 +174,7 @@ func main() {
 			pos = fmt.Sprintf("%s:%d", filepath.Base(sym.Line.File.Name), sym.Line.Line)
 			lines, _ = getLines(sym.Line.File.Name, sym.Line.Line-1, sym.Line.Line+1)
 		} else {
-			pos = fmt.Sprintf("%-24#x", pair.PC.PC)
+			pos = fmt.Sprintf("%#-24x", pair.PC.PC)
 			lines = nil
 		}
 

@@ -315,7 +315,7 @@ func elfFuncTable(filename string, elff *elf.File) (out []funcRange, isReloc boo
 	syms, err := elff.Symbols()
 	if err != nil {
 		if err != elf.ErrNoSymbols {
-			log.Fatal("%s: %s", filename, err)
+			log.Fatalf("%s: %s", filename, err)
 		}
 		return nil, false
 	}

@@ -33,7 +33,7 @@ func (e *Extractor) Extract(env *BuildEnv) error {
 
 	// Construct printer program.
 	src := bytes.NewBufferString(e.Prologue)
-	fmt.Fprint(src, `
+	src.WriteString(`
 #include <stdio.h>
 #include <string.h>
 
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	for _, n := range e.Names {
 		fmt.Fprintf(src, "__CPARSE_PR(%s);\n", n)
 	}
-	fmt.Fprintf(src, "return 0;\n}\n")
+	src.WriteString("return 0;\n}\n")
 
 	// Compiler printer.
 	tdir, err := ioutil.TempDir("", "cparse-")

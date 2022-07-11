@@ -73,7 +73,7 @@ func process(path string) {
 		}
 		// Attach this decl.
 		if decl, ok := decl.(*ast.GenDecl); !ok || decl.Tok != token.CONST {
-			log.Fatalf("%s: def must be applied to const", defsTodo[0].Pos)
+			log.Fatalf("%s: def must be applied to const", fset.Position(defsTodo[0].Pos))
 		}
 		defsTodo[0].Decl = decl.(*ast.GenDecl)
 		defsTodo = defsTodo[1:]
