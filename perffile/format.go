@@ -1080,7 +1080,7 @@ type RecordSample struct {
 	StackUser        []byte // if SampleFormatStackUser
 	StackUserDynSize uint64 // if SampleFormatStackUser
 
-	Weight  uint64  // if SampleFormatWeight
+	Weight  uint64  // if SampleFormatWeight or SampleFormatWeightStruct
 	Weights Weights // if SampleFormatWeightStruct
 
 	DataSrc DataSrc // if SampleFormatDataSrc
