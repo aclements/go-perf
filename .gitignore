@@ -1,0 +1,7 @@
+/cmd/bitstringer/bitstringer
+/cmd/branchstats/branchstats
+/cmd/memanim/memanim
+/cmd/memheat/memheat
+/cmd/memlat/memlat
+/cmd/perfdump/perfdump
+/cmd/prologuer/prologuer
