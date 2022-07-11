@@ -90,7 +90,7 @@ func parsePerf(fileName string) *database {
 	droppedMmaps := 0
 	droppedSymbols := 0
 
-	const requiredFormat = perffile.SampleFormatIP | perffile.SampleFormatAddr | perffile.SampleFormatWeight | perffile.SampleFormatDataSrc
+	const requiredFormat = perffile.SampleFormatIP | perffile.SampleFormatAddr | perffile.SampleFormatDataSrc
 
 	rs := f.Records(perffile.RecordsCausalOrder)
 	for rs.Next() {
@@ -108,6 +108,10 @@ func parsePerf(fileName string) *database {
 
 		case *perffile.RecordSample:
 			if r.Format&requiredFormat != requiredFormat {
+				break
+			}
+			// Either Weight or WeightStruct is required.
+			if r.Format&(perffile.SampleFormatWeight|perffile.SampleFormatWeightStruct) == 0 {
 				break
 			}
 
