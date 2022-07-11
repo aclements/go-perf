@@ -74,9 +74,11 @@ package main
 
 import (
 	"bufio"
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
@@ -89,11 +91,8 @@ import (
 	"github.com/aclements/go-perf/perffile"
 )
 
-//go:generate go run makestatic.go
-
-// staticFiles is the static file tree baked in to the binary. This is
-// assigned by an init function if the static files are available.
-var staticFiles mapFS
+//go:embed static
+var staticFiles embed.FS
 
 // TODO: Open a browser automatically. Maybe bind to any address in
 // this mode.
@@ -112,15 +111,6 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	if *flagDocRoot == "" && staticFiles == nil {
-		// No baked-in static file system.
-		*flagDocRoot = "static"
-		fi, err := os.Stat(*flagDocRoot)
-		if err != nil || !fi.IsDir() {
-			fmt.Fprintln(os.Stderr, "static assets not found; please specify -docroot")
-			os.Exit(1)
-		}
-	}
 
 	fmt.Fprintln(os.Stderr, "loading profile...")
 	db := parsePerf(*flagInput)
@@ -128,8 +118,11 @@ func main() {
 
 	mux := http.NewServeMux()
 	if *flagDocRoot == "" {
-		mux.Handle("/", http.FileServer(staticFiles))
+		// Use the embedded static assets.
+		sub, _ := fs.Sub(staticFiles, "static")
+		mux.Handle("/", http.FileServer(http.FS(sub)))
 	} else {
+		// Use assets from the file system.
 		mux.Handle("/", http.FileServer(http.Dir(*flagDocRoot)))
 	}
 	mux.Handle("/h", &heatMapHandler{db})
