@@ -407,5 +407,10 @@ func dwarfLineTable(dwarff *dwarf.Data) []dwarf.LineEntry {
 			out = append(out, lent)
 		}
 	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Address < out[j].Address
+	})
+
 	return out
 }
