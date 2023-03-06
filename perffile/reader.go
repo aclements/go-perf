@@ -104,6 +104,7 @@ func New(r io.ReaderAt) (*File, error) {
 	// Read EventAttr IDs and create ID -> EventAttr map
 	file.idToAttr = make(map[attrID]*EventAttr)
 	for _, attr := range file.attrs {
+		attr := attr
 		var ids []attrID
 		if err := readSlice(attr.IDs.sectionReader(r), &ids); err != nil {
 			return nil, err
