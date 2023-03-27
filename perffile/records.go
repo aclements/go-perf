@@ -534,8 +534,17 @@ func (r *Records) parseSample(bd *bufDecoder, hdr *recordHeader, common *RecordC
 		o.Callchain = nil
 	}
 
-	rawSize := bd.u32If(t&SampleFormatRaw != 0)
-	bd.skip(int(rawSize))
+	if t&SampleFormatRaw != 0 {
+		rawSize := int(bd.u32())
+		if o.Raw == nil || cap(o.Raw) < rawSize {
+			o.Raw = make([]byte, rawSize)
+		} else {
+			o.Raw = o.Raw[:rawSize]
+		}
+		bd.bytes(o.Raw)
+	} else {
+		o.Raw = nil
+	}
 
 	o.BranchHWIndex = bd.i64If(o.EventAttr.BranchSampleType&BranchSampleHWIndex != 0)
 
