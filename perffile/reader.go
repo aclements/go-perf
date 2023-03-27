@@ -108,8 +108,9 @@ func New(r io.ReaderAt) (*File, error) {
 		if err := readSlice(attr.IDs.sectionReader(r), &ids); err != nil {
 			return nil, err
 		}
+		attrCopy := attr.Attr
 		for _, id := range ids {
-			file.idToAttr[id] = &attr.Attr
+			file.idToAttr[id] = &attrCopy
 		}
 	}
 
