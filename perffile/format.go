@@ -1098,6 +1098,8 @@ type RecordSample struct {
 	CodePageSize uint64 // if SampleFormatCodePageSize
 
 	Aux []byte // if SampleFormatAux
+
+	Raw []byte // if SampleFormatRaw
 }
 
 func (r *RecordSample) Type() RecordType {
@@ -1177,6 +1179,9 @@ func (r *RecordSample) String() string {
 	if f&SampleFormatWeightStruct != 0 {
 		s += fmt.Sprintf(" Weights:%v", r.Weights)
 	}
+	if f&SampleFormatRaw != 0 {
+		s += fmt.Sprintf(" Raw:%v", r.Raw)
+	}
 	return s + "}"
 }
 
@@ -1253,6 +1258,9 @@ func (r *RecordSample) Fields() []string {
 	}
 	if f&SampleFormatWeightStruct != 0 {
 		fs = append(fs, "Weights")
+	}
+	if f&SampleFormatRaw != 0 {
+		fs = append(fs, "Raw")
 	}
 	return fs
 }
