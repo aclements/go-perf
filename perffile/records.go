@@ -50,11 +50,25 @@ type Records struct {
 	recordAux           RecordAux
 	recordSwitch        RecordSwitch
 	recordSwitchCPUWide RecordSwitchCPUWide
+
+	// reuse of recordHeader to reduce memory alloc objects
+	hdr    recordHeader
+	hdrBuf []byte
 }
 
 // Err returns the first error encountered by Records.
 func (r *Records) Err() error {
 	return r.err
+}
+
+func (r *Records) readRecordHeader() error {
+	if _, err := io.ReadFull(r.sr, r.hdrBuf); err != nil {
+		return err
+	}
+	r.hdr.Type = RecordType(binary.LittleEndian.Uint32(r.hdrBuf))
+	r.hdr.Misc = recordMisc(binary.LittleEndian.Uint16(r.hdrBuf[4:]))
+	r.hdr.Size = binary.LittleEndian.Uint16(r.hdrBuf[6:])
+	return nil
 }
 
 // Next fetches the next record into r.Record.  It returns true if
@@ -87,8 +101,7 @@ func (r *Records) Next() bool {
 	common.Offset = offset + int64(r.f.hdr.Data.Offset)
 
 	// Read record header
-	var hdr recordHeader
-	if err := binary.Read(r.sr, binary.LittleEndian, &hdr); err != nil {
+	if err := r.readRecordHeader(); err != nil {
 		if err != io.EOF {
 			r.err = err
 		}
@@ -96,7 +109,7 @@ func (r *Records) Next() bool {
 	}
 
 	// Read record data
-	rlen := int(hdr.Size - 8)
+	rlen := int(r.hdr.Size - 8)
 	if rlen > len(r.buf) {
 		r.buf = make([]byte, rlen)
 	}
@@ -107,90 +120,90 @@ func (r *Records) Next() bool {
 	}
 
 	// Parse common sample_id fields
-	if r.f.sampleIDAll && hdr.Type != RecordTypeSample && hdr.Type < recordTypeUserStart {
+	if r.f.sampleIDAll && r.hdr.Type != RecordTypeSample && r.hdr.Type < recordTypeUserStart {
 		// mmap records in the prologue don't have eventAttrs
 		// in recent perf versions, but that's okay.
 		//
 		// TODO: When is perf okay with missing eventAttrs?
-		r.parseCommon(bd, &common, hdr.Type == RecordTypeMmap)
+		r.parseCommon(bd, &common, r.hdr.Type == RecordTypeMmap)
 	}
 
 	// Parse record
 	// TODO: Don't array out-of-bounds on short records
-	switch hdr.Type {
+	switch r.hdr.Type {
 	default:
 		// As far as I can tell, RecordTypeRead can never
 		// appear in a perf.data file.
-		r.Record = &RecordUnknown{hdr, common, bd.buf}
+		r.Record = &RecordUnknown{r.hdr, common, bd.buf}
 
 	case RecordTypeMmap:
-		r.Record = r.parseMmap(bd, &hdr, &common, false)
+		r.Record = r.parseMmap(bd, &r.hdr, &common, false)
 
 	case RecordTypeLost:
-		r.Record = r.parseLost(bd, &hdr, &common)
+		r.Record = r.parseLost(bd, &r.hdr, &common)
 
 	case RecordTypeComm:
-		r.Record = r.parseComm(bd, &hdr, &common)
+		r.Record = r.parseComm(bd, &r.hdr, &common)
 
 	case RecordTypeExit:
-		r.Record = r.parseExit(bd, &hdr, &common)
+		r.Record = r.parseExit(bd, &r.hdr, &common)
 
 	case RecordTypeThrottle:
-		r.Record = r.parseThrottle(bd, &hdr, &common, true)
+		r.Record = r.parseThrottle(bd, &r.hdr, &common, true)
 
 	case RecordTypeUnthrottle:
-		r.Record = r.parseThrottle(bd, &hdr, &common, false)
+		r.Record = r.parseThrottle(bd, &r.hdr, &common, false)
 
 	case RecordTypeFork:
-		r.Record = r.parseFork(bd, &hdr, &common)
+		r.Record = r.parseFork(bd, &r.hdr, &common)
 
 	case RecordTypeSample:
-		r.Record = r.parseSample(bd, &hdr, &common)
+		r.Record = r.parseSample(bd, &r.hdr, &common)
 
 	case recordTypeMmap2:
-		r.Record = r.parseMmap(bd, &hdr, &common, true)
+		r.Record = r.parseMmap(bd, &r.hdr, &common, true)
 
 	case RecordTypeAux:
-		r.Record = r.parseAux(bd, &hdr, &common)
+		r.Record = r.parseAux(bd, &r.hdr, &common)
 
 	case RecordTypeItraceStart:
-		r.Record = r.parseItraceStart(bd, &hdr, &common)
+		r.Record = r.parseItraceStart(bd, &r.hdr, &common)
 
 	case RecordTypeLostSamples:
-		r.Record = r.parseLostSamples(bd, &hdr, &common)
+		r.Record = r.parseLostSamples(bd, &r.hdr, &common)
 
 	case RecordTypeSwitch:
-		r.Record = r.parseSwitch(bd, &hdr, &common)
+		r.Record = r.parseSwitch(bd, &r.hdr, &common)
 
 	case RecordTypeSwitchCPUWide:
-		r.Record = r.parseSwitchCPUWide(bd, &hdr, &common)
+		r.Record = r.parseSwitchCPUWide(bd, &r.hdr, &common)
 
 	case RecordTypeNamespaces:
-		r.Record = r.parseNamespaces(bd, &hdr, &common)
+		r.Record = r.parseNamespaces(bd, &r.hdr, &common)
 
 	case RecordTypeKsymbol:
-		r.Record = r.parseKsymbol(bd, &hdr, &common)
+		r.Record = r.parseKsymbol(bd, &r.hdr, &common)
 
 	case RecordTypeBPFEvent:
-		r.Record = r.parseBPFEvent(bd, &hdr, &common)
+		r.Record = r.parseBPFEvent(bd, &r.hdr, &common)
 
 	case RecordTypeCGroup:
-		r.Record = r.parseCGroup(bd, &hdr, &common)
+		r.Record = r.parseCGroup(bd, &r.hdr, &common)
 
 	case RecordTypeTextPoke:
-		r.Record = r.parseTextPoke(bd, &hdr, &common)
+		r.Record = r.parseTextPoke(bd, &r.hdr, &common)
 
 	case RecordTypeAuxOutputHardwareID:
-		r.Record = r.parseAuxOutputHardwareID(bd, &hdr, &common)
+		r.Record = r.parseAuxOutputHardwareID(bd, &r.hdr, &common)
 
 	case RecordTypeAuxtraceInfo:
-		r.Record = r.parseAuxtraceInfo(bd, &hdr, &common)
+		r.Record = r.parseAuxtraceInfo(bd, &r.hdr, &common)
 
 	case RecordTypeAuxtrace:
 		// Note: This appears to be the only record type that
 		// has additional payload data following it that isn't
 		// included in the header size.
-		r.Record = r.parseAuxtrace(bd, &hdr, &common)
+		r.Record = r.parseAuxtrace(bd, &r.hdr, &common)
 	}
 	if r.err != nil {
 		return false
