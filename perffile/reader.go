@@ -356,10 +356,10 @@ func (f *File) Records(order RecordsOrder) *Records {
 			return &Records{err: rs.Err()}
 		}
 		sort.Stable(&timeSorter{pos, ts})
-		return &Records{f: f, sr: newBufferedSectionReader(f.hdr.Data.sectionReader(f.r)), order: pos}
+		return &Records{f: f, sr: newBufferedSectionReader(f.hdr.Data.sectionReader(f.r)), order: pos, hdrBuf: make([]byte, 8)}
 	}
 
-	return &Records{f: f, sr: newBufferedSectionReader(f.hdr.Data.sectionReader(f.r))}
+	return &Records{f: f, sr: newBufferedSectionReader(f.hdr.Data.sectionReader(f.r)), hdrBuf: make([]byte, 8)}
 }
 
 type timeSorter struct {
